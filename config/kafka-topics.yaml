@@ -1,0 +1,53 @@
+topics:
+  # Conversation Events
+  conversation.messages:
+    partitions: 3
+    replication_factor: 1
+    retention_hours: 168  # 7 days
+    
+  conversation.state_changes:
+    partitions: 3
+    replication_factor: 1
+    retention_hours: 720  # 30 days
+    
+  conversation.responses:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 168  # 7 days
+
+  # Quotation Workflow
+  quotation.requests:
+    partitions: 3
+    replication_factor: 1
+    retention_hours: 2160  # 90 days
+    
+  quotation.processing:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 720  # 30 days
+    
+  quotation.responses:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 4320  # 180 days
+    
+  quotation.modifications:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 2160  # 90 days
+    
+  quotation.confirmations:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 8760  # 1 year
+
+  # System Events
+  system.webhooks:
+    partitions: 1
+    replication_factor: 1
+    retention_hours: 720  # 30 days
+    
+  system.errors:
+    partitions: 1
+    replication_factor: 1
+    retention_hours: 720  # 30 days

@@ -92,6 +92,20 @@ services:
     networks:
       - transport_network
 
+  kafka-init:
+    image: confluentinc/cp-kafka:${KAFKA_VERSION:-7.4.0}
+    container_name: transportation_kafka_init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./config:/config
+      - ./scripts:/scripts
+    command: python3 /scripts/init-kafka-topics.py
+    restart: "no"
+    networks:
+      - transport_network
+
   fastapi:
     build: .
     container_name: transportation_fastapi
@@ -106,11 +120,14 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
       WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: unless-stopped
     networks:
