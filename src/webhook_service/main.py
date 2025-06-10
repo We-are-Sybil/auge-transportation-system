@@ -1,4 +1,3 @@
-"""FastAPI webhook service with database integration"""
 import logging
 import sys
 import os
