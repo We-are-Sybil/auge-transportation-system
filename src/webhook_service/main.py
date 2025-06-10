@@ -13,6 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.database.manager import DatabaseManager
 from src.database.redis_manager import RedisManager
 from src.database.models import MessageRole, ConversationStep
+from src.kafka_service import KafkaProducerService
 from src.webhook_service.whatsapp_models import (
     WhatsAppWebhook, ProcessedWhatsAppMessage, WhatsAppMessage, WhatsAppMessageType
 )
@@ -24,13 +25,33 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Transportation Webhook Service", version="1.0.0")
 
+# Global Kafka producer
+kafka_producer = None
+
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize services on startup"""
+    global kafka_producer
+    
+    # Initialize database
     db = DatabaseManager()
     await db.init_tables()
     await db.close()
     logger.info("✅ Database tables initialized")
+    
+    # Initialize Kafka producer
+    kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    kafka_producer = KafkaProducerService(kafka_bootstrap)
+    await kafka_producer.start()
+    logger.info("✅ Kafka producer initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    global kafka_producer
+    if kafka_producer:
+        await kafka_producer.stop()
+        logger.info("✅ Kafka producer stopped")
 
 # Database dependency
 async def get_db():
@@ -52,6 +73,7 @@ class WebhookResponse(BaseModel):
     status: str
     timestamp: str
     message: str
+    kafka_sent: bool = False
 
 class ConversationCreate(BaseModel):
     user_id: str
@@ -97,13 +119,17 @@ async def webhook_verification(
 @app.post("/webhook", response_model=WebhookResponse)
 async def webhook_endpoint(
     request: Request, 
-    db: DatabaseManager = Depends(get_db),
     redis: RedisManager = Depends(get_redis)
 ):
-    """WhatsApp webhook endpoint with proper parsing"""
+    """WhatsApp webhook endpoint - now sends to Kafka instead of direct processing"""
+    global kafka_producer
+    
     try:
         body = await request.body()
         logger.info(f"Webhook received: {len(body)} bytes")
+        
+        kafka_sent = False
+        processed_count = 0
         
         # Parse WhatsApp webhook
         if body:
@@ -111,23 +137,41 @@ async def webhook_endpoint(
             try:
                 whatsapp_webhook = WhatsAppWebhook(**webhook_data)
                 processed_messages = process_whatsapp_webhook(whatsapp_webhook)
+                processed_count = len(processed_messages)
                 
-                logger.info(f"Processed {len(processed_messages)} WhatsApp messages")
+                logger.info(f"Parsed {processed_count} WhatsApp messages")
                 
-                # Store messages with enhanced session state
+                # Send each message to Kafka instead of processing directly
                 for msg in processed_messages:
-                    # Get or create conversation state
-                    existing_state = await redis.get_session(msg.sender)
+                    # Prepare message data for Kafka
+                    message_data = {
+                        "message_id": msg.message_id,
+                        "sender": msg.sender,
+                        "content": msg.content,
+                        "sender_name": msg.sender_name,
+                        "timestamp": msg.timestamp,
+                        "message_type": msg.message_type.value
+                    }
                     
+                    # Send to Kafka
+                    if kafka_producer:
+                        success = await kafka_producer.send_webhook_message(message_data)
+                        if success:
+                            kafka_sent = True
+                            logger.info(f"📤 Message sent to Kafka: {msg.sender} -> {msg.content[:50]}...")
+                        else:
+                            logger.error(f"❌ Failed to send message to Kafka: {msg.message_id}")
+                    
+                    # Still store minimal session state in Redis for immediate queries
+                    existing_state = await redis.get_session(msg.sender)
                     if existing_state:
                         conv_state = ConversationState(**existing_state)
                     else:
                         conv_state = ConversationState(user_id=msg.sender)
                     
-                    # Update state with new message
                     conv_state.update_message(msg.content)
                     
-                    # Basic intent detection for stage progression
+                    # Basic intent detection for immediate responses
                     if any(word in msg.content.lower() for word in ["hola", "hi", "hello"]):
                         conv_state.set_stage(ConversationStage.GREETING)
                     elif any(word in msg.content.lower() for word in ["transporte", "taxi", "servicio"]):
@@ -136,37 +180,29 @@ async def webhook_endpoint(
                     # Save updated state to Redis
                     await redis.save_session(msg.sender, conv_state.model_dump(), 24)
                     
-                    # Save to database
-                    conv_id = await db.get_or_create_conversation(msg.sender)
-                    message_id = await db.add_message(
-                        conv_id, 
-                        MessageRole.USER, 
-                        msg.content,
-                        json.dumps({
-                            "whatsapp_message_id": msg.message_id, 
-                            "sender_name": msg.sender_name,
-                            "conversation_stage": conv_state.stage.value
-                        })
-                    )
-                    
-                    logger.info(f"Message from {msg.sender_name or msg.sender}: {msg.content}")
-                    logger.info(f"State: {conv_state.stage.value}, Messages: {conv_state.message_count}")
+                    logger.info(f"✅ Session state updated: {msg.sender} - Stage: {conv_state.stage.value}")
                 
                 return WebhookResponse(
                     status="success",
                     timestamp=datetime.now().isoformat(),
-                    message=f"Processed {len(processed_messages)} WhatsApp messages"
+                    message=f"Processed {processed_count} messages, sent to Kafka",
+                    kafka_sent=kafka_sent
                 )
                 
             except Exception as e:
                 logger.error(f"WhatsApp parsing error: {e}")
-                # Fall back to basic logging
-                logger.info(f"Raw webhook data: {webhook_data}")
+                return WebhookResponse(
+                    status="error",
+                    timestamp=datetime.now().isoformat(),
+                    message=f"Parse error: {str(e)}",
+                    kafka_sent=False
+                )
         
         return WebhookResponse(
             status="success",
             timestamp=datetime.now().isoformat(),
-            message="Webhook received"
+            message="Webhook received - no messages",
+            kafka_sent=False
         )
     
     except Exception as e:
@@ -174,7 +210,8 @@ async def webhook_endpoint(
         return WebhookResponse(
             status="error",
             timestamp=datetime.now().isoformat(),
-            message=f"Error: {str(e)}"
+            message=f"Error: {str(e)}",
+            kafka_sent=False
         )
 
 def process_whatsapp_webhook(webhook: WhatsAppWebhook) -> List[ProcessedWhatsAppMessage]:
@@ -192,9 +229,9 @@ def process_whatsapp_webhook(webhook: WhatsAppWebhook) -> List[ProcessedWhatsApp
                     if message.text:  # Only handle text messages for now
                         processed_msg = ProcessedWhatsAppMessage(
                             message_id=message.id,
-                            sender=message.from_,  # Fix: use from_ field
+                            sender=message.from_,
                             content=message.text.body,
-                            sender_name=contacts.get(message.from_),  # Fix: use from_ field  
+                            sender_name=contacts.get(message.from_),
                             timestamp=message.timestamp,
                             message_type=message.type
                         )
@@ -209,8 +246,23 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Health check"""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    """Health check with Kafka status"""
+    global kafka_producer
+    
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "services": {}
+    }
+    
+    # Check Kafka
+    if kafka_producer:
+        kafka_health = await kafka_producer.health_check()
+        health_status["services"]["kafka"] = kafka_health
+    else:
+        health_status["services"]["kafka"] = {"status": "not_initialized"}
+    
+    return health_status
 
 @app.get("/db/test")
 async def test_database(db: DatabaseManager = Depends(get_db)):
@@ -242,6 +294,33 @@ async def test_redis(redis: RedisManager = Depends(get_redis)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/kafka/test")
+async def test_kafka():
+    """Test Kafka producer"""
+    global kafka_producer
+    
+    if not kafka_producer:
+        raise HTTPException(status_code=503, detail="Kafka producer not initialized")
+    
+    try:
+        # Send test message
+        test_data = {
+            "test_id": "api_test",
+            "content": "API Kafka test message",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        success = await kafka_producer.send_webhook_message(test_data)
+        
+        if success:
+            return {"kafka": "working", "test_sent": True, "status": "healthy"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send test message")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Keep existing API endpoints for backward compatibility
 @app.post("/api/conversations")
 async def create_conversation(conv: ConversationCreate, db: DatabaseManager = Depends(get_db)):
     """Create new conversation session"""
@@ -255,7 +334,6 @@ async def create_conversation(conv: ConversationCreate, db: DatabaseManager = De
 async def add_message(msg: MessageCreate, db: DatabaseManager = Depends(get_db)):
     """Add message to conversation"""
     try:
-        # Convert string role to enum
         role = MessageRole(msg.role)
         message_id = await db.add_message(msg.session_id, role, msg.content)
         return {"message_id": message_id, "status": "created"}
