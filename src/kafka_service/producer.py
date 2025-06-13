@@ -138,6 +138,151 @@ class KafkaProducerService:
             logger.error(f"❌ Failed to send quotation request: {e}")
             return False
     
+    async def send_quotation_request_event(self, event_data: Dict[str, Any]) -> bool:
+        """Send quotation request event to quotation.requests topic"""
+        if not self._started:
+            return False
+        
+        try:
+            message = {
+                "event_type": "quotation_request",
+                "timestamp": datetime.now().isoformat(),
+                "event_data": event_data,
+                "source": "quotation_service"
+            }
+            
+            # Use request_id as key for ordering
+            key = str(event_data.get("request_id", "unknown"))
+            
+            await self.producer.send_and_wait(
+                "quotation.requests",
+                message,
+                key=key
+            )
+            
+            logger.info(f"📤 Quotation request event sent: {event_data.get('form_number', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send quotation request event: {e}")
+            return False
+    
+    async def send_quotation_processing_event(self, event_data: Dict[str, Any]) -> bool:
+        """Send quotation processing event to quotation.processing topic"""
+        if not self._started:
+            return False
+        
+        try:
+            message = {
+                "event_type": "quotation_processing",
+                "timestamp": datetime.now().isoformat(),
+                "event_data": event_data,
+                "source": "quotation_service"
+            }
+            
+            # Use request_id as key
+            key = str(event_data.get("request_id", "unknown"))
+            
+            await self.producer.send_and_wait(
+                "quotation.processing",
+                message,
+                key=key
+            )
+            
+            logger.info(f"📤 Quotation processing event sent: {event_data.get('processing_stage', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send quotation processing event: {e}")
+            return False
+    
+    async def send_quotation_response_event(self, event_data: Dict[str, Any]) -> bool:
+        """Send quotation response event to quotation.responses topic"""
+        if not self._started:
+            return False
+        
+        try:
+            message = {
+                "event_type": "quotation_response",
+                "timestamp": datetime.now().isoformat(),
+                "event_data": event_data,
+                "source": "quotation_service"
+            }
+            
+            # Use quotation_id as key
+            key = str(event_data.get("quotation_id", "unknown"))
+            
+            await self.producer.send_and_wait(
+                "quotation.responses",
+                message,
+                key=key
+            )
+            
+            logger.info(f"📤 Quotation response event sent: quote_id={event_data.get('quotation_id', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send quotation response event: {e}")
+            return False
+    
+    async def send_quotation_modification_event(self, event_data: Dict[str, Any]) -> bool:
+        """Send quotation modification event to quotation.modifications topic"""
+        if not self._started:
+            return False
+        
+        try:
+            message = {
+                "event_type": "quotation_modification",
+                "timestamp": datetime.now().isoformat(),
+                "event_data": event_data,
+                "source": "quotation_service"
+            }
+            
+            # Use original quotation_id as key
+            key = str(event_data.get("original_quotation_id", "unknown"))
+            
+            await self.producer.send_and_wait(
+                "quotation.modifications",
+                message,
+                key=key
+            )
+            
+            logger.info(f"📤 Quotation modification event sent: {event_data.get('change_type', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send quotation modification event: {e}")
+            return False
+    
+    async def send_quotation_confirmation_event(self, event_data: Dict[str, Any]) -> bool:
+        """Send quotation confirmation event to quotation.confirmations topic"""
+        if not self._started:
+            return False
+        
+        try:
+            message = {
+                "event_type": "quotation_confirmation",
+                "timestamp": datetime.now().isoformat(),
+                "event_data": event_data,
+                "source": "quotation_service"
+            }
+            
+            # Use quotation_id as key
+            key = str(event_data.get("quotation_id", "unknown"))
+            
+            await self.producer.send_and_wait(
+                "quotation.confirmations",
+                message,
+                key=key
+            )
+            
+            logger.info(f"📤 Quotation confirmation event sent: {event_data.get('decision', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send quotation confirmation event: {e}")
+            return False
+    
     async def health_check(self) -> Dict[str, Any]:
         """Check producer health"""
         return {

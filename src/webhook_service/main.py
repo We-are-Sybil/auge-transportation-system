@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Add project root to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -251,7 +251,7 @@ async def test_kafka():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Legacy API endpoints (keep for backward compatibility and testing)
+# API models
 class ConversationCreate(BaseModel):
     user_id: str
     session_id: str
@@ -265,6 +265,199 @@ class SessionCreate(BaseModel):
     user_id: str
     session_data: Dict[str, Any]
 
+# Quotation API models
+class QuotationRequestCreate(BaseModel):
+    client_cc_nit: str
+    nombre_solicitante: str
+    celular_contacto: str
+    quien_solicita: str
+    fecha_inicio_servicio: str  # ISO format
+    hora_inicio_servicio: str
+    direccion_inicio: str
+    direccion_terminacion: Optional[str] = None
+    caracteristicas_servicio: str
+    cantidad_pasajeros: int
+    equipaje_carga: bool = False
+    user_id: Optional[str] = None
+
+class QuotationResponseCreate(BaseModel):
+    request_id: int
+    precio_base: float
+    precio_total: float
+    condiciones_servicio: str
+    condiciones_pago: str
+
+# Quotation endpoints
+@app.post("/api/quotations/requests")
+async def create_quotation_request(
+    quotation: QuotationRequestCreate, 
+    db: DatabaseManager = Depends(get_db)
+):
+    """Create quotation request and send to Kafka"""
+    global kafka_producer
+    
+    try:
+        from datetime import datetime
+        import uuid
+        
+        # Create client if doesn't exist
+        existing_client = await db.get_client_by_cc_nit(quotation.client_cc_nit)
+        if not existing_client:
+            client_id = await db.create_client(
+                quotation.client_cc_nit,
+                quotation.nombre_solicitante,
+                quotation.celular_contacto
+            )
+        else:
+            # Get existing client ID
+            from src.database.models import Client
+            async with db.get_session() as session:
+                from sqlalchemy import select
+                result = await session.execute(
+                    select(Client).where(Client.cc_nit == quotation.client_cc_nit)
+                )
+                client = result.scalar_one()
+                client_id = client.id
+
+        # Generate form number
+        form_number = f"FORM-{int(datetime.now().timestamp())}"
+        
+        # Parse service date
+        service_date = datetime.fromisoformat(quotation.fecha_inicio_servicio.replace('Z', '+00:00'))
+        
+        # Create quotation request in database
+        request_id = await db.create_quotation_request(
+            form_number=form_number,
+            client_id=client_id,
+            quien_solicita=quotation.quien_solicita,
+            fecha_inicio_servicio=service_date,
+            hora_inicio_servicio=quotation.hora_inicio_servicio,
+            direccion_inicio=quotation.direccion_inicio,
+            direccion_terminacion=quotation.direccion_terminacion,
+            caracteristicas_servicio=quotation.caracteristicas_servicio,
+            cantidad_pasajeros=quotation.cantidad_pasajeros,
+            equipaje_carga=quotation.equipaje_carga
+        )
+        
+        logger.info(f"✅ Quotation request created in DB: {request_id}")
+        
+        # Send to Kafka
+        if kafka_producer:
+            event_data = {
+                "request_id": request_id,
+                "form_number": form_number,
+                "client_id": client_id,
+                "quien_solicita": quotation.quien_solicita,
+                "fecha_inicio_servicio": service_date.isoformat(),
+                "hora_inicio_servicio": quotation.hora_inicio_servicio,
+                "direccion_inicio": quotation.direccion_inicio,
+                "direccion_terminacion": quotation.direccion_terminacion,
+                "caracteristicas_servicio": quotation.caracteristicas_servicio,
+                "cantidad_pasajeros": quotation.cantidad_pasajeros,
+                "equipaje_carga": quotation.equipaje_carga,
+                "user_id": quotation.user_id
+            }
+            
+            kafka_sent = await kafka_producer.send_quotation_request_event(event_data)
+            logger.info(f"📤 Quotation request sent to Kafka: {kafka_sent}")
+        else:
+            kafka_sent = False
+        
+        return {
+            "request_id": request_id,
+            "form_number": form_number,
+            "status": "created",
+            "kafka_sent": kafka_sent
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating quotation request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/quotations/responses")
+async def create_quotation_response(response: QuotationResponseCreate):
+    """Generate quotation response and send to Kafka"""
+    global kafka_producer
+    
+    try:
+        import uuid
+        
+        # Generate quotation ID (in real app, this would be from database)
+        quotation_id = int(datetime.now().timestamp())
+        
+        logger.info(f"✅ Quotation response generated: {quotation_id}")
+        
+        # Send to Kafka
+        if kafka_producer:
+            event_data = {
+                "request_id": response.request_id,
+                "quotation_id": quotation_id,
+                "version": 1,
+                "precio_base": str(response.precio_base),
+                "precio_total": str(response.precio_total),
+                "condiciones_servicio": response.condiciones_servicio,
+                "condiciones_pago": response.condiciones_pago,
+                "sent_to": "api_user",
+                "delivery_method": "api"
+            }
+            
+            kafka_sent = await kafka_producer.send_quotation_response_event(event_data)
+            logger.info(f"📤 Quotation response sent to Kafka: {kafka_sent}")
+        else:
+            kafka_sent = False
+        
+        return {
+            "quotation_id": quotation_id,
+            "request_id": response.request_id,
+            "precio_total": response.precio_total,
+            "status": "sent",
+            "kafka_sent": kafka_sent
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating quotation response: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/quotations/{quotation_id}/accept")
+async def accept_quotation(quotation_id: int, billing_data: Dict[str, Any] = None):
+    """Accept quotation and send confirmation to Kafka"""
+    global kafka_producer
+    
+    try:
+        logger.info(f"✅ Quotation accepted: {quotation_id}")
+        
+        # Send to Kafka
+        if kafka_producer:
+            event_data = {
+                "quotation_id": quotation_id,
+                "request_id": quotation_id - 1000,  # Mock relationship
+                "decision": "accepted",
+                "confirmed_by": "API User",
+                "billing_data": billing_data or {
+                    "facturar_a_nombre": "Test Company",
+                    "nit_facturacion": "123456789-0",
+                    "email_facturacion": "test@company.com"
+                },
+                "service_order_id": f"SO-{quotation_id}"
+            }
+            
+            kafka_sent = await kafka_producer.send_quotation_confirmation_event(event_data)
+            logger.info(f"📤 Quotation confirmation sent to Kafka: {kafka_sent}")
+        else:
+            kafka_sent = False
+        
+        return {
+            "quotation_id": quotation_id,
+            "status": "accepted",
+            "service_order_id": f"SO-{quotation_id}",
+            "kafka_sent": kafka_sent
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error accepting quotation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Legacy API endpoints (keep for backward compatibility and testing)
 @app.get("/db/test")
 async def test_database(db: DatabaseManager = Depends(get_db)):
     """Test database connection"""
