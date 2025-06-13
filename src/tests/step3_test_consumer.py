@@ -54,14 +54,15 @@ async def test_message_consumption():
     # Track received messages
     received_messages = []
     
-    async def test_handler(message_data, kafka_message):
+    # Updated handler signature to match new consumer interface
+    async def test_handler(message_data, kafka_message, db_manager, redis_manager):
         received_messages.append(message_data)
         print(f"✅ Received: {message_data.get('message_data', {}).get('test_id', 'unknown')}")
     
     try:
         # Start services
         await producer.start()
-        consumer.register_handler("whatsapp_webhook", test_handler)  # Match the event type from producer
+        consumer.register_handler("whatsapp_webhook", test_handler)
         await consumer.start(["conversation.messages"])
         
         # Send test message

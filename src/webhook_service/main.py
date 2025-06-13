@@ -12,12 +12,10 @@ from typing import Dict, Any, List
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.database.manager import DatabaseManager
 from src.database.redis_manager import RedisManager
-from src.database.models import MessageRole, ConversationStep
 from src.kafka_service import KafkaProducerService
 from src.webhook_service.whatsapp_models import (
     WhatsAppWebhook, ProcessedWhatsAppMessage, WhatsAppMessage, WhatsAppMessageType
 )
-from src.webhook_service.session_models import ConversationState, ConversationStage
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +31,7 @@ async def startup_event():
     """Initialize services on startup"""
     global kafka_producer
     
-    # Initialize database
+    # Initialize database (for health checks and legacy API endpoints)
     db = DatabaseManager()
     await db.init_tables()
     await db.close()
@@ -53,7 +51,7 @@ async def shutdown_event():
         await kafka_producer.stop()
         logger.info("✅ Kafka producer stopped")
 
-# Database dependency
+# Database dependency (for legacy API endpoints)
 async def get_db():
     db = DatabaseManager()
     try:
@@ -61,7 +59,7 @@ async def get_db():
     finally:
         await db.close()
 
-# Redis dependency
+# Redis dependency (for legacy API endpoints)
 async def get_redis():
     redis_mgr = RedisManager()
     try:
@@ -74,23 +72,6 @@ class WebhookResponse(BaseModel):
     timestamp: str
     message: str
     kafka_sent: bool = False
-
-class ConversationCreate(BaseModel):
-    user_id: str
-    session_id: str
-
-class MessageCreate(BaseModel):
-    session_id: int
-    role: str
-    content: str
-
-class SessionData(BaseModel):
-    user_id: str
-    data: Dict[str, Any]
-
-class SessionCreate(BaseModel):
-    user_id: str
-    session_data: Dict[str, Any]
 
 @app.get("/webhook")
 async def webhook_verification(
@@ -117,11 +98,8 @@ async def webhook_verification(
         raise HTTPException(status_code=403, detail="Verification failed")
 
 @app.post("/webhook", response_model=WebhookResponse)
-async def webhook_endpoint(
-    request: Request, 
-    redis: RedisManager = Depends(get_redis)
-):
-    """WhatsApp webhook endpoint - now sends to Kafka instead of direct processing"""
+async def webhook_endpoint(request: Request):
+    """WhatsApp webhook endpoint - simplified to just parse and send to Kafka"""
     global kafka_producer
     
     try:
@@ -141,7 +119,7 @@ async def webhook_endpoint(
                 
                 logger.info(f"Parsed {processed_count} WhatsApp messages")
                 
-                # Send each message to Kafka instead of processing directly
+                # Send each message to Kafka - consumer will handle processing
                 for msg in processed_messages:
                     # Prepare message data for Kafka
                     message_data = {
@@ -161,31 +139,11 @@ async def webhook_endpoint(
                             logger.info(f"📤 Message sent to Kafka: {msg.sender} -> {msg.content[:50]}...")
                         else:
                             logger.error(f"❌ Failed to send message to Kafka: {msg.message_id}")
-                    
-                    # Still store minimal session state in Redis for immediate queries
-                    existing_state = await redis.get_session(msg.sender)
-                    if existing_state:
-                        conv_state = ConversationState(**existing_state)
-                    else:
-                        conv_state = ConversationState(user_id=msg.sender)
-                    
-                    conv_state.update_message(msg.content)
-                    
-                    # Basic intent detection for immediate responses
-                    if any(word in msg.content.lower() for word in ["hola", "hi", "hello"]):
-                        conv_state.set_stage(ConversationStage.GREETING)
-                    elif any(word in msg.content.lower() for word in ["transporte", "taxi", "servicio"]):
-                        conv_state.set_stage(ConversationStage.COLLECTING_INFO)
-                    
-                    # Save updated state to Redis
-                    await redis.save_session(msg.sender, conv_state.model_dump(), 24)
-                    
-                    logger.info(f"✅ Session state updated: {msg.sender} - Stage: {conv_state.stage.value}")
                 
                 return WebhookResponse(
                     status="success",
                     timestamp=datetime.now().isoformat(),
-                    message=f"Processed {processed_count} messages, sent to Kafka",
+                    message=f"Processed {processed_count} messages, sent to Kafka for processing",
                     kafka_sent=kafka_sent
                 )
                 
@@ -242,7 +200,7 @@ def process_whatsapp_webhook(webhook: WhatsAppWebhook) -> List[ProcessedWhatsApp
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"service": "Transportation Webhook", "status": "running"}
+    return {"service": "Transportation Webhook", "status": "running", "role": "webhook_receiver"}
 
 @app.get("/health")
 async def health():
@@ -252,6 +210,7 @@ async def health():
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
+        "role": "webhook_receiver",
         "services": {}
     }
     
@@ -263,6 +222,48 @@ async def health():
         health_status["services"]["kafka"] = {"status": "not_initialized"}
     
     return health_status
+
+@app.get("/kafka/test")
+async def test_kafka():
+    """Test Kafka producer"""
+    global kafka_producer
+    
+    if not kafka_producer:
+        raise HTTPException(status_code=503, detail="Kafka producer not initialized")
+    
+    try:
+        # Send test message
+        test_data = {
+            "test_id": "webhook_test",
+            "content": "Webhook Kafka test message",
+            "timestamp": datetime.now().isoformat(),
+            "sender": "webhook_service",
+            "message_type": "text"
+        }
+        
+        success = await kafka_producer.send_webhook_message(test_data)
+        
+        if success:
+            return {"kafka": "working", "test_sent": True, "status": "healthy"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send test message")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Legacy API endpoints (keep for backward compatibility and testing)
+class ConversationCreate(BaseModel):
+    user_id: str
+    session_id: str
+
+class MessageCreate(BaseModel):
+    session_id: int
+    role: str
+    content: str
+
+class SessionCreate(BaseModel):
+    user_id: str
+    session_data: Dict[str, Any]
 
 @app.get("/db/test")
 async def test_database(db: DatabaseManager = Depends(get_db)):
@@ -294,37 +295,11 @@ async def test_redis(redis: RedisManager = Depends(get_redis)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/kafka/test")
-async def test_kafka():
-    """Test Kafka producer"""
-    global kafka_producer
-    
-    if not kafka_producer:
-        raise HTTPException(status_code=503, detail="Kafka producer not initialized")
-    
-    try:
-        # Send test message
-        test_data = {
-            "test_id": "api_test",
-            "content": "API Kafka test message",
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        success = await kafka_producer.send_webhook_message(test_data)
-        
-        if success:
-            return {"kafka": "working", "test_sent": True, "status": "healthy"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to send test message")
-            
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Keep existing API endpoints for backward compatibility
 @app.post("/api/conversations")
 async def create_conversation(conv: ConversationCreate, db: DatabaseManager = Depends(get_db)):
     """Create new conversation session"""
     try:
+        from src.database.models import MessageRole
         session_id = await db.create_conversation_session(conv.user_id, conv.session_id)
         return {"session_id": session_id, "status": "created"}
     except Exception as e:
@@ -334,6 +309,7 @@ async def create_conversation(conv: ConversationCreate, db: DatabaseManager = De
 async def add_message(msg: MessageCreate, db: DatabaseManager = Depends(get_db)):
     """Add message to conversation"""
     try:
+        from src.database.models import MessageRole
         role = MessageRole(msg.role)
         message_id = await db.add_message(msg.session_id, role, msg.content)
         return {"message_id": message_id, "status": "created"}
