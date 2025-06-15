@@ -1,0 +1,16 @@
+FROM python:3.13-slim
+
+workdir /app
+
+# Install uv
+RUN pip install uv
+
+# Copy project files
+COPY pyproject.toml .
+COPY src/ src/
+
+# Install dependencies
+RUN uv pip install --system -e .
+
+# Run consumer service
+CMD ["uv", "run", "src/consumer_service.py"]
