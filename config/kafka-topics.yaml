@@ -51,3 +51,36 @@ topics:
     partitions: 1
     replication_factor: 1
     retention_hours: 720  # 30 days
+
+  # Dead Letter Queues
+  conversation.messages.dlq:
+    partitions: 1
+    replication_factor: 1
+    retention_hours: 2160  # 90 days (longer retention for investigation)
+    
+  quotation.requests.dlq:
+    partitions: 1
+    replication_factor: 1
+    retention_hours: 2160  # 90 days
+    
+  quotation.processing.dlq:
+    partitions: 1
+    replication_factor: 1
+    retention_hours: 2160  # 90 days
+    
+  # Retry Topics (for delayed retries)
+  conversation.messages.retry:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 168  # 7 days
+    
+  quotation.requests.retry:
+    partitions: 2
+    replication_factor: 1
+    retention_hours: 168  # 7 days
+
+  # Monitoring Topics
+  system.metrics:
+    partitions: 1
+    replication_factor: 1
+    retention_hours: 168  # 7 days
