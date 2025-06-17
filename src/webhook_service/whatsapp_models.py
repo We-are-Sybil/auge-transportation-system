@@ -35,7 +35,7 @@ class WhatsAppMessage(BaseModel):
     timestamp: str
     type: WhatsAppMessageType
     text: Optional[WhatsAppText] = None
-    
+
     class Config:
         populate_by_name = True
 

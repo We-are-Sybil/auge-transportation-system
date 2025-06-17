@@ -44,7 +44,7 @@ def check_container_status():
 def test_services_health():
     """Test 2: Check services are healthy"""
     print("\n🔍 Test 2: Services health...")
-    
+
     try:
         # Test FastAPI health
         response = requests.get(f"{BASE_URL}/health", timeout=10)
@@ -54,10 +54,10 @@ def test_services_health():
         print("✅ FastAPI healthy")
 
         health_data = response.json()
-        kafka_status = health_data.get("services", {}).get("kafka", {}).get("kafka_producer", {}).get("status")
+        status = health_data.get("services", {}).get("kafka", {}).get("producer", {}).get("status")
         
-        if kafka_status != "healthy":
-            print(f"❌ Kafka unhealthy: {kafka_status}")
+        if status != "healthy":
+            print(f"❌ Kafka unhealthy: {status}")
             return False
         print("✅ Kafka healthy")
         
@@ -87,7 +87,7 @@ def test_services_health():
 def test_webhook_to_consumer_flow():
     """Test 3: Complete webhook -> consumer flow"""
     print("\n🔍 Test 3: Webhook -> Consumer flow...")
-    
+
     try:
         # Generate unique test data
         test_user = f"stack_test_{int(time.time())}"
@@ -126,9 +126,9 @@ def test_webhook_to_consumer_flow():
             return False, None
         
         result = response.json()
-        kafka_sent = result.get("kafka_sent", False)
+        sent = result.get("sent", False)
         
-        if not kafka_sent:
+        if not sent:
             print("❌ Message not sent to Kafka")
             return False, None
         
@@ -143,11 +143,11 @@ def test_webhook_to_consumer_flow():
 def test_consumer_processing(test_user):
     """Test 4: Verify consumer processed the message"""
     print("\n🔍 Test 4: Consumer processing verification...")
-    
+
     if not test_user:
         print("❌ No test user to verify")
         return False
-    
+
     try:
         # Wait for consumer to process (give it some time)
         print("⏱️ Waiting 10 seconds for consumer processing...")
@@ -183,7 +183,7 @@ def test_consumer_processing(test_user):
 def test_multiple_message_flow():
     """Test 5: Multiple messages through complete stack"""
     print("\n🔍 Test 5: Multiple message flow...")
-    
+
     try:
         test_user = f"multi_stack_{int(time.time())}"
         messages = [
@@ -251,7 +251,7 @@ def test_multiple_message_flow():
 def check_consumer_logs():
     """Test 6: Check consumer container logs"""
     print("\n🔍 Test 6: Consumer logs...")
-    
+
     try:
         result = subprocess.run(
             ["podman", "logs", "transportation_consumer"],
@@ -282,17 +282,17 @@ def main():
     print("- podman-compose up -d")
     print("- Wait 2-3 minutes for all services to start")
     print("=" * 60)
-    
+
     tests = [
         ("Container Status", check_container_status),
         ("Services Health", test_services_health),
         ("Webhook Flow", lambda: test_webhook_to_consumer_flow()[0]),
         ("Consumer Logs", check_consumer_logs)
     ]
-    
+
     results = []
     test_user = None
-    
+
     # Run initial tests
     for name, test_func in tests:
         if name == "Webhook Flow":
@@ -304,7 +304,7 @@ def main():
         if not success and name in ["Container Status", "Services Health"]:
             print(f"\n❌ Critical test failed: {name}")
             break
-    
+
     # If webhook test passed, run verification tests
     if test_user:
         consumer_success = test_consumer_processing(test_user)
@@ -312,16 +312,16 @@ def main():
         
         multi_success = test_multiple_message_flow()
         results.append(("Multiple Messages", multi_success))
-    
+
     print("\n" + "=" * 60)
     print("📊 RESULTS")
     print("=" * 60)
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 COMPLETE CONTAINERIZED STACK WORKING!")
         print("Architecture verified:")

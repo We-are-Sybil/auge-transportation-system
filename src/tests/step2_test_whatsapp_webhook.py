@@ -127,28 +127,28 @@ def test_session_storage():
 def main():
     print("🚀 WhatsApp Webhook Structure Tests")
     print("=" * 40)
-    
+
     tests = [
         ("Webhook Verification", test_webhook_verification),
         ("Model Validation", test_whatsapp_models),
         ("Webhook Parsing", test_whatsapp_webhook_parsing),
         ("Session Storage", test_session_storage)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = test_func()
         results.append((name, success))
-    
+
     print("\n" + "=" * 40)
     print("📊 RESULTS")
     print("=" * 40)
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 WHATSAPP WEBHOOK READY!")
         print("Step 2.4 complete")

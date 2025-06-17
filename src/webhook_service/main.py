@@ -30,13 +30,13 @@ kafka_producer = None
 async def startup_event():
     """Initialize services on startup"""
     global kafka_producer
-    
+
     # Initialize database (for health checks and legacy API endpoints)
     db = DatabaseManager()
     await db.init_tables()
     await db.close()
     logger.info("✅ Database tables initialized")
-    
+
     # Initialize Kafka producer
     kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     kafka_producer = KafkaProducerService(kafka_bootstrap)
@@ -85,11 +85,11 @@ async def webhook_verification(
     mode = hub_mode or request.query_params.get('hub.mode')
     token = hub_verify_token or request.query_params.get('hub.verify_token') 
     challenge = hub_challenge or request.query_params.get('hub.challenge')
-    
+
     logger.info(f"🔍 Webhook verification - Mode: {mode}")
-    
+
     VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
-    
+
     if mode == 'subscribe' and token == VERIFY_TOKEN:
         logger.info("✅ WEBHOOK_VERIFIED")
         return PlainTextResponse(content=challenge, status_code=200)
@@ -101,7 +101,7 @@ async def webhook_verification(
 async def webhook_endpoint(request: Request):
     """WhatsApp webhook endpoint - simplified to just parse and send to Kafka"""
     global kafka_producer
-    
+
     try:
         body = await request.body()
         logger.info(f"Webhook received: {len(body)} bytes")
@@ -162,7 +162,7 @@ async def webhook_endpoint(request: Request):
             message="Webhook received - no messages",
             kafka_sent=False
         )
-    
+
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return WebhookResponse(
@@ -175,7 +175,7 @@ async def webhook_endpoint(request: Request):
 def process_whatsapp_webhook(webhook: WhatsAppWebhook) -> List[ProcessedWhatsAppMessage]:
     """Process WhatsApp webhook and extract messages"""
     processed_messages = []
-    
+
     for entry in webhook.entry:
         for change in entry.changes:
             if change.field == "messages":
@@ -194,7 +194,7 @@ def process_whatsapp_webhook(webhook: WhatsAppWebhook) -> List[ProcessedWhatsApp
                             message_type=message.type
                         )
                         processed_messages.append(processed_msg)
-    
+
     return processed_messages
 
 @app.get("/")
@@ -206,31 +206,31 @@ async def root():
 async def health():
     """Health check with Kafka status"""
     global kafka_producer
-    
+
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "role": "webhook_receiver",
         "services": {}
     }
-    
+
     # Check Kafka
     if kafka_producer:
         kafka_health = await kafka_producer.health_check()
         health_status["services"]["kafka"] = kafka_health
     else:
         health_status["services"]["kafka"] = {"status": "not_initialized"}
-    
+
     return health_status
 
 @app.get("/kafka/test")
 async def test_kafka():
     """Test Kafka producer"""
     global kafka_producer
-    
+
     if not kafka_producer:
         raise HTTPException(status_code=503, detail="Kafka producer not initialized")
-    
+
     try:
         # Send test message
         test_data = {
@@ -295,7 +295,7 @@ async def create_quotation_request(
 ):
     """Create quotation request and send to Kafka"""
     global kafka_producer
-    
+
     try:
         from datetime import datetime
         import uuid
@@ -378,7 +378,7 @@ async def create_quotation_request(
 async def create_quotation_response(response: QuotationResponseCreate):
     """Generate quotation response and send to Kafka"""
     global kafka_producer
-    
+
     try:
         import uuid
         
@@ -422,7 +422,7 @@ async def create_quotation_response(response: QuotationResponseCreate):
 async def accept_quotation(quotation_id: int, billing_data: Dict[str, Any] = None):
     """Accept quotation and send confirmation to Kafka"""
     global kafka_producer
-    
+
     try:
         logger.info(f"✅ Quotation accepted: {quotation_id}")
         

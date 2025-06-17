@@ -43,10 +43,10 @@ def create_whatsapp_payload(sender_id, message_text, sender_name="End2End Test")
 async def test_consumer_database_integration():
     """Test 1: Consumer can process messages and store in database"""
     print("🔍 Test 1: Consumer database integration...")
-    
+
     db_manager = DatabaseManager()
     redis_manager = RedisManager()
-    
+
     try:
         # Initialize database
         await db_manager.init_tables()
@@ -92,7 +92,7 @@ async def test_consumer_database_integration():
 def test_webhook_sends_to_kafka():
     """Test 2: Webhook sends messages to Kafka"""
     print("\n🔍 Test 2: Webhook → Kafka...")
-    
+
     try:
         user_id = f"webhook_test_{int(time.time())}"
         payload = create_whatsapp_payload(user_id, "Test webhook to kafka integration")
@@ -115,7 +115,7 @@ def test_webhook_sends_to_kafka():
 async def test_start_consumer_service():
     """Test 3: Start a temporary consumer service to process messages"""
     print("\n🔍 Test 3: Starting consumer service...")
-    
+
     try:
         # Create and start consumer service
         consumer_service = KafkaConsumerService("localhost:9092", "e2e_test_group")
@@ -150,10 +150,10 @@ async def test_start_consumer_service():
 async def test_verify_processing_results(test_user_id):
     """Test 4: Verify messages were processed to database/Redis"""
     print("\n🔍 Test 4: Verify processing results...")
-    
+
     db_manager = DatabaseManager()
     redis_manager = RedisManager()
-    
+
     try:
         await db_manager.init_tables()
         
@@ -183,7 +183,7 @@ async def test_verify_processing_results(test_user_id):
 async def test_conversation_persistence():
     """Test 5: Multiple messages with consumer processing"""
     print("\n🔍 Test 5: Multi-message conversation...")
-    
+
     try:
         user_id = f"persistence_test_{int(time.time())}"
         messages = [
@@ -251,38 +251,38 @@ async def main():
     print("- podman-compose up -d")
     print("- uv run uvicorn src.webhook_service.main:app --reload")
     print("=" * 50)
-    
+
     # Test 1: Consumer database integration
     consumer_test = await test_consumer_database_integration()
     if not consumer_test:
         print("\n❌ Consumer integration failed")
         return
-    
+
     # Test 2: Webhook sends to Kafka
     webhook_success, test_user = test_webhook_sends_to_kafka()
     if not webhook_success:
         print("\n❌ Webhook → Kafka failed")
         return
-    
+
     # Test 3: Start consumer service to process messages
     consumer_start = await test_start_consumer_service()
     if not consumer_start:
         print("\n❌ Consumer service failed")
         return
-    
+
     # Test 4: Verify processing results
     verification_success = await test_verify_processing_results(test_user)
     if not verification_success:
         print("\n❌ Processing verification failed")
         # Continue anyway to test persistence
-    
+
     # Test 5: Multi-message conversation persistence
     persistence_success = await test_conversation_persistence()
-    
+
     print("\n" + "=" * 50)
     print("📊 RESULTS")
     print("=" * 50)
-    
+
     tests = [
         ("Consumer Database Integration", consumer_test),
         ("Webhook → Kafka", webhook_success),
@@ -290,12 +290,12 @@ async def main():
         ("Processing Verification", verification_success),
         ("Conversation Persistence", persistence_success)
     ]
-    
+
     all_passed = all(success for _, success in tests)
     for name, success in tests:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 END-TO-END MESSAGE PROCESSING READY!")
         print("Step 3.6 complete - Message processing integration working")

@@ -30,7 +30,7 @@ def create_topic(name, config):
         "--partitions", str(config["partitions"]),
         "--replication-factor", str(config["replication_factor"])
     ]
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode == 0 or "already exists" in result.stderr:
         # Set retention
@@ -48,20 +48,20 @@ def create_topic(name, config):
 def main():
     if not wait_for_kafka():
         sys.exit(1)
-    
+
     with open("/config/kafka-topics.yaml") as f:
         config = yaml.safe_load(f)
-    
+
     success = 0
     total = len(config["topics"])
-    
+
     for name, topic_config in config["topics"].items():
         if create_topic(name, topic_config):
             print(f"✅ {name}")
             success += 1
         else:
             print(f"❌ {name}")
-    
+
     print(f"Created {success}/{total} topics")
     sys.exit(0 if success == total else 1)
 

@@ -1,4 +1,4 @@
-import requests
+im    port requests
 import time
 
 BASE_URL = "http://localhost:8000"
@@ -63,42 +63,42 @@ def test_session_not_found():
 def main():
     print("🚀 FastAPI Redis Integration Tests")
     print("=" * 40)
-    
+
     # Test Redis connection
     if not test_redis_connection():
         print("\n❌ Redis connection failed.")
         return
-    
+
     # Test session workflow
     success, user_id = test_create_session()
     if not success or not user_id:
         print("\n❌ Session creation failed.")
         return
-    
+
     # Test session retrieval
     if not test_get_session(user_id):
         print("\n❌ Session retrieval failed.")
         return
-    
+
     # Test not found case
     not_found_success = test_session_not_found()
-    
+
     print("\n" + "=" * 40)
     print("📊 RESULTS")
     print("=" * 40)
-    
+
     results = [
         ("Redis Connection", True),
         ("Session Creation", True),
         ("Session Retrieval", True),
         ("Not Found Test", not_found_success)
     ]
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 REDIS INTEGRATION READY!")
         print("Step 2.3 complete")

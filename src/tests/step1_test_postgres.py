@@ -42,28 +42,28 @@ async def main():
     """Run tests"""
     print("🚀 PostgreSQL + SQLAlchemy Test")
     print("=" * 40)
-    
+
     tests = [
         ("Connection", test_connection),
         ("CRUD", test_crud)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = await test_func()
         results.append((name, success))
-    
+
     print("\n" + "=" * 40)
     print("📊 RESULTS")
     print("=" * 40)
-    
+
     all_passed = True
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
         if not success:
             all_passed = False
-    
+
     if all_passed:
         print("\n🎉 ALL TESTS PASSED!")
         print("Ready for Step 1.2: Redis Setup")

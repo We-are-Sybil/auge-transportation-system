@@ -11,7 +11,7 @@ KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 def test_create_quotation_request():
     """Test 1: Create quotation request via API"""
     print("🔍 Test 1: Create quotation request...")
-    
+
     try:
         quotation_data = {
             "client_cc_nit": f"12345678-{int(time.time()) % 1000}",
@@ -39,7 +39,7 @@ def test_create_quotation_request():
         else:
             print(f"❌ API failed: {response.status_code} - {response.text}")
             return False, None
-    
+
     except Exception as e:
         print(f"❌ Request creation failed: {e}")
         return False, None
@@ -47,7 +47,7 @@ def test_create_quotation_request():
 def test_create_quotation_response(request_id):
     """Test 2: Create quotation response via API"""
     print("\n🔍 Test 2: Create quotation response...")
-    
+
     try:
         response_data = {
             "request_id": request_id,
@@ -68,7 +68,7 @@ def test_create_quotation_response(request_id):
         else:
             print(f"❌ API failed: {response.status_code} - {response.text}")
             return False, None
-    
+
     except Exception as e:
         print(f"❌ Response creation failed: {e}")
         return False, None
@@ -76,7 +76,7 @@ def test_create_quotation_response(request_id):
 def test_accept_quotation(quotation_id):
     """Test 3: Accept quotation via API"""
     print("\n🔍 Test 3: Accept quotation...")
-    
+
     try:
         billing_data = {
             "facturar_a_nombre": "María García Empresa SAS",
@@ -101,7 +101,7 @@ def test_accept_quotation(quotation_id):
         else:
             print(f"❌ API failed: {response.status_code} - {response.text}")
             return False
-    
+
     except Exception as e:
         print(f"❌ Acceptance failed: {e}")
         return False
@@ -109,7 +109,7 @@ def test_accept_quotation(quotation_id):
 async def test_consume_quotation_events():
     """Test 4: Verify events appear in Kafka"""
     print("\n🔍 Test 4: Consume quotation events from Kafka...")
-    
+
     consumer = AIOKafkaConsumer(
         "quotation.requests",
         "quotation.responses", 
@@ -119,7 +119,7 @@ async def test_consume_quotation_events():
         value_deserializer=lambda x: json.loads(x.decode('utf-8')),
         consumer_timeout_ms=8000
     )
-    
+
     try:
         await consumer.start()
         print("✅ Kafka consumer started")
@@ -182,46 +182,46 @@ async def main():
     print("- podman-compose up -d")
     print("- uv run uvicorn src.webhook_service.main:app --reload")
     print("=" * 45)
-    
+
     # Test 0: Health check
     if not test_fastapi_health():
         print("\n❌ FastAPI/Kafka not ready")
         return
-    
+
     # Test 1: Create quotation request
     request_success, request_id = test_create_quotation_request()
     if not request_success or not request_id:
         print("\n❌ Request creation failed")
         return
-    
+
     # Small delay
     await asyncio.sleep(1)
-    
+
     # Test 2: Create quotation response
     response_success, quotation_id = test_create_quotation_response(request_id)
     if not response_success or not quotation_id:
         print("\n❌ Response creation failed")
         return
-    
+
     # Small delay
     await asyncio.sleep(1)
-    
+
     # Test 3: Accept quotation
     accept_success = test_accept_quotation(quotation_id)
     if not accept_success:
         print("\n❌ Quotation acceptance failed")
         return
-    
+
     # Wait for Kafka messages to be available
     await asyncio.sleep(2)
-    
+
     # Test 4: Verify events in Kafka
     kafka_success = await test_consume_quotation_events()
-    
+
     print("\n" + "=" * 45)
     print("📊 RESULTS")
     print("=" * 45)
-    
+
     tests = [
         ("FastAPI Health", True),
         ("Request Creation", request_success),
@@ -229,12 +229,12 @@ async def main():
         ("Quotation Acceptance", accept_success),
         ("Kafka Events", kafka_success)
     ]
-    
+
     all_passed = all(success for _, success in tests)
     for name, success in tests:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 QUOTATION API INTEGRATION WORKING!")
         print("You should now see:")

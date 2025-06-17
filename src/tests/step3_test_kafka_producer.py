@@ -43,26 +43,26 @@ async def test_producer_health():
 async def main():
     print("🚀 Kafka Producer Fix Test")
     print("=" * 30)
-    
+
     tests = [
         ("Producer Creation", test_producer_creation),
         ("Health Check", test_producer_health)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = await test_func()
         results.append((name, success))
-    
+
     print("\n" + "=" * 30)
     print("📊 RESULTS")
     print("=" * 30)
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 PRODUCER FIX WORKING!")
         print("FastAPI should start now")

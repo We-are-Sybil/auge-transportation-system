@@ -9,12 +9,12 @@ logger = logging.getLogger(__name__)
 
 class KafkaProducerService:
     """Async Kafka producer for transportation events"""
-    
+
     def __init__(self, bootstrap_servers: str = "localhost:9092"):
         self.bootstrap_servers = bootstrap_servers
         self.producer: Optional[AIOKafkaProducer] = None
         self._started = False
-    
+
     async def start(self):
         """Start Kafka producer"""
         if self._started:
@@ -36,18 +36,18 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to start Kafka producer: {e}")
             raise
-    
+
     async def stop(self):
         """Stop Kafka producer"""
         if self.producer and self._started:
             await self.producer.stop()
             self._started = False
             logger.info("🛑 Kafka producer stopped")
-    
+
     def _serialize_json(self, value: Any) -> bytes:
         """Serialize value to JSON bytes"""
         return json.dumps(value, default=str).encode('utf-8')
-    
+
     async def send_webhook_message(self, message_data: Dict[str, Any]) -> bool:
         """Send WhatsApp webhook message to conversation.messages topic"""
         if not self._started:
@@ -56,7 +56,7 @@ class KafkaProducerService:
         
         try:
             # Prepare message with metadata
-            kafka_message = {
+            message = {
                 "event_type": "whatsapp_webhook",
                 "timestamp": datetime.now().isoformat(),
                 "message_data": message_data,
@@ -69,7 +69,7 @@ class KafkaProducerService:
             # Send to conversation.messages topic
             record_metadata = await self.producer.send_and_wait(
                 "conversation.messages", 
-                kafka_message, 
+                message, 
                 key=key
             )
             
@@ -83,7 +83,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Unexpected error sending to Kafka: {e}")
             return False
-    
+
     async def send_conversation_event(self, event_type: str, user_id: str, data: Dict[str, Any]) -> bool:
         """Send conversation state change event"""
         if not self._started:
@@ -109,7 +109,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send conversation event: {e}")
             return False
-    
+
     async def send_quotation_request(self, request_data: Dict[str, Any]) -> bool:
         """Send quotation request to processing queue"""
         if not self._started:
@@ -137,7 +137,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send quotation request: {e}")
             return False
-    
+
     async def send_quotation_request_event(self, event_data: Dict[str, Any]) -> bool:
         """Send quotation request event to quotation.requests topic"""
         if not self._started:
@@ -166,7 +166,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send quotation request event: {e}")
             return False
-    
+
     async def send_quotation_processing_event(self, event_data: Dict[str, Any]) -> bool:
         """Send quotation processing event to quotation.processing topic"""
         if not self._started:
@@ -195,7 +195,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send quotation processing event: {e}")
             return False
-    
+
     async def send_quotation_response_event(self, event_data: Dict[str, Any]) -> bool:
         """Send quotation response event to quotation.responses topic"""
         if not self._started:
@@ -224,7 +224,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send quotation response event: {e}")
             return False
-    
+
     async def send_quotation_modification_event(self, event_data: Dict[str, Any]) -> bool:
         """Send quotation modification event to quotation.modifications topic"""
         if not self._started:
@@ -253,7 +253,7 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send quotation modification event: {e}")
             return False
-    
+
     async def send_quotation_confirmation_event(self, event_data: Dict[str, Any]) -> bool:
         """Send quotation confirmation event to quotation.confirmations topic"""
         if not self._started:
@@ -282,11 +282,11 @@ class KafkaProducerService:
         except Exception as e:
             logger.error(f"❌ Failed to send quotation confirmation event: {e}")
             return False
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """Check producer health"""
         return {
-            "kafka_producer": {
+            "producer": {
                 "started": self._started,
                 "bootstrap_servers": self.bootstrap_servers,
                 "status": "healthy" if self._started else "stopped"

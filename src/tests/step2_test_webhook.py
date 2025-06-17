@@ -70,44 +70,44 @@ def main():
     print("- podman-compose up -d")
     print("- uv run uvicorn src.webhook_service.main:app --reload")
     print("=" * 45)
-    
+
     # Test database connection first
     if not test_database_connection():
         print("\n❌ Database connection failed. Check containers.")
         return
-    
+
     # Test conversation workflow
     success, session_id = test_create_conversation()
     if not success or not session_id:
         print("\n❌ Conversation creation failed.")
         return
-    
+
     # Test message creation
     if not test_add_message(session_id):
         print("\n❌ Message creation failed.")
         return
-    
+
     # Test webhook integration
     webhook_success = test_webhook_with_db()
-    
+
     print("\n" + "=" * 45)
     print("📊 RESULTS")
     print("=" * 45)
-    
+
     results = [
         ("Database Connection", True),
         ("Conversation Creation", True),
         ("Message Creation", True),
         ("Webhook Integration", webhook_success)
     ]
-    
+
     all_passed = True
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
         if not success:
             all_passed = False
-    
+
     if all_passed:
         print("\n🎉 DATABASE INTEGRATION READY!")
         print("Step 2.2 complete")

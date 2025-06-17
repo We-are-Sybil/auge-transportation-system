@@ -41,7 +41,7 @@ class ErrorMetrics:
         self.error_counts = {}
         self.circuit_breakers = {}
         self.last_reset = datetime.now()
-    
+
     def record_error(self, error_type: str, handler_name: str):
         key = f"{handler_name}:{error_type}"
         self.error_counts[key] = self.error_counts.get(key, 0) + 1
@@ -51,7 +51,7 @@ class ErrorMetrics:
         if total_errors >= 10:  # Circuit breaker threshold
             self.circuit_breakers[handler_name] = datetime.now() + timedelta(minutes=5)
             logger.warning(f"🔴 Circuit breaker OPEN for {handler_name} - too many errors")
-    
+
     def is_circuit_open(self, handler_name: str) -> bool:
         if handler_name in self.circuit_breakers:
             if datetime.now() < self.circuit_breakers[handler_name]:
@@ -61,7 +61,7 @@ class ErrorMetrics:
                 del self.circuit_breakers[handler_name]
                 logger.info(f"🟢 Circuit breaker CLOSED for {handler_name}")
         return False
-    
+
     def get_stats(self) -> Dict[str, Any]:
         return {
             "error_counts": self.error_counts,
@@ -81,7 +81,7 @@ class MessageContext:
 
 class KafkaConsumerService:
     """Enhanced Kafka consumer with error handling and DLQ support"""
-    
+
     def __init__(self, bootstrap_servers: str = "localhost:9092", group_id: str = "transportation_processors"):
         self.bootstrap_servers = bootstrap_servers
         self.group_id = group_id
@@ -97,12 +97,12 @@ class KafkaConsumerService:
         # Database and Redis managers
         self.db_manager = DatabaseManager()
         self.redis_manager = RedisManager()
-    
+
     def register_handler(self, event_type: str, handler: Callable):
         """Register message handler for specific event type"""
         self.message_handlers[event_type] = handler
         logger.info(f"📝 Registered handler for: {event_type}")
-    
+
     async def start(self, topics: list):
         """Start Kafka consumer with DLQ producer"""
         if self.running:
@@ -149,7 +149,7 @@ class KafkaConsumerService:
         except Exception as e:
             logger.error(f"❌ Failed to start enhanced consumer: {e}")
             raise
-    
+
     async def stop(self):
         """Stop all Kafka connections"""
         if self.running:
@@ -167,7 +167,7 @@ class KafkaConsumerService:
             
             self.running = False
             logger.info("🛑 Enhanced Kafka consumer stopped")
-    
+
     async def consume_messages(self):
         """Main consumption loop with error handling"""
         if not self.running:
@@ -182,7 +182,7 @@ class KafkaConsumerService:
         except Exception as e:
             logger.error(f"❌ Critical error in consumption loop: {e}")
             raise
-    
+
     async def process_message_with_error_handling(self, kafka_message):
         """Process message with comprehensive error handling"""
         context = None
@@ -221,7 +221,7 @@ class KafkaConsumerService:
             
         except Exception as e:
             await self.handle_processing_error(context, e)
-    
+
     async def handle_processing_error(self, context: MessageContext, error: Exception):
         """Handle processing errors with retry logic"""
         error_msg = str(error)
@@ -244,7 +244,7 @@ class KafkaConsumerService:
             await self.schedule_retry(context, error_msg, error_type)
         else:
             await self.send_to_dlq(context, error_msg, error_type)
-    
+
     def classify_error(self, error: Exception) -> ErrorType:
         """Classify error type for retry decisions"""
         error_msg = str(error).lower()
@@ -267,7 +267,7 @@ class KafkaConsumerService:
         
         # Default to transient for unknown errors (safer)
         return ErrorType.TRANSIENT
-    
+
     async def schedule_retry(self, context: MessageContext, error_msg: str, error_type: ErrorType):
         """Schedule message for retry with exponential backoff"""
         retry_count = context.attempt_count + 1
@@ -304,7 +304,7 @@ class KafkaConsumerService:
         except Exception as e:
             logger.error(f"❌ Failed to schedule retry: {e}")
             await self.send_to_dlq(context, f"retry_scheduling_failed: {e}", ErrorType.DEPENDENCY)
-    
+
     async def send_to_dlq(self, context: MessageContext, error_msg: str, error_type: ErrorType):
         """Send failed message to Dead Letter Queue"""
         try:
@@ -345,7 +345,7 @@ class KafkaConsumerService:
         except Exception as e:
             logger.critical(f"💥 CRITICAL: Failed to send to DLQ: {e}")
             logger.critical(f"📋 Original message: {context.original_message}")
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """Enhanced health check with error metrics"""
         health = {

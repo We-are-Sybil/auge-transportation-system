@@ -103,30 +103,30 @@ async def main():
     """Run all model tests"""
     print("🚀 Complete Models Test")
     print("=" * 40)
-    
+
     tests = [
         ("Database Init", test_database_init),
         ("Conversation Flow", test_conversation_flow),
         ("Business Workflow", test_business_workflow),
         ("ENUM Values", test_enum_values)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = await test_func()
         results.append((name, success))
-    
+
     print("\n" + "=" * 40)
     print("📊 RESULTS")
     print("=" * 40)
-    
+
     all_passed = True
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
         if not success:
             all_passed = False
-    
+
     if all_passed:
         print("\n🎉 MODELS READY!")
         print("Phase 1 complete - Database infrastructure working")

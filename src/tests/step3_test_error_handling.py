@@ -75,7 +75,7 @@ def test_fastapi_health_with_error_metrics():
 def test_send_malformed_webhook():
     """Test 2: Send malformed webhook to trigger validation error"""
     print("\n🔍 Test 2: Malformed webhook handling...")
-    
+
     try:
         payload = create_malformed_whatsapp_payload()
         
@@ -102,13 +102,13 @@ def test_send_malformed_webhook():
 async def test_consume_dlq_messages():
     """Test 3: Self-contained DLQ test - sends bad message directly to Kafka and verifies DLQ"""
     print("\n🔍 Test 3: Self-contained DLQ message test...")
-    
+
     # Step 1: Send a malformed message directly to main topic
     producer = AIOKafkaProducer(
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         value_serializer=lambda x: json.dumps(x).encode('utf-8')
     )
-    
+
     test_message_id = f"dlq_test_{int(time.time())}"
     malformed_message = {
         "event_type": "whatsapp_webhook",
@@ -121,7 +121,7 @@ async def test_consume_dlq_messages():
         },
         "source": "dlq_test"
     }
-    
+
     try:
         await producer.start()
         print("📤 Sending malformed message to main topic...")
@@ -199,13 +199,13 @@ async def test_consume_dlq_messages():
 async def test_retry_topic_messages():
     """Test 4: Self-contained retry test - sends message that causes retryable error"""
     print("\n🔍 Test 4: Self-contained retry topic test...")
-    
+
     # Step 1: Send a message that should cause a retryable error
     producer = AIOKafkaProducer(
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         value_serializer=lambda x: json.dumps(x).encode('utf-8')
     )
-    
+
     test_message_id = f"retry_test_{int(time.time())}"
     # Create a message that will pass basic validation but cause a retryable error during processing
     retry_message = {
@@ -222,7 +222,7 @@ async def test_retry_topic_messages():
         },
         "source": "retry_test"
     }
-    
+
     try:
         await producer.start()
         print("📤 Sending message that should cause retryable error...")
@@ -296,7 +296,7 @@ async def test_retry_topic_messages():
 def test_send_multiple_bad_messages():
     """Test 5: Send multiple bad messages to test circuit breaker"""
     print("\n🔍 Test 5: Circuit breaker test...")
-    
+
     try:
         # Send multiple malformed messages rapidly
         for i in range(5):
@@ -323,7 +323,7 @@ def test_send_multiple_bad_messages():
 def check_consumer_logs_for_errors():
     """Test 6: Check consumer logs for error handling messages"""
     print("\n🔍 Test 6: Consumer error logs...")
-    
+
     try:
         result = subprocess.run(
             ["podman", "logs", "--tail", "50", "transportation_consumer"],
@@ -360,7 +360,7 @@ def check_consumer_logs_for_errors():
 async def test_error_metrics_endpoint():
     """Test 7: Check if consumer service exposes error metrics"""
     print("\n🔍 Test 7: Error metrics (if available)...")
-    
+
     # Note: This would require adding a metrics endpoint to the consumer
     # For now, just check if basic health works
     try:
@@ -386,48 +386,48 @@ async def main():
     print("- podman-compose up -d")
     print("- Wait for all services to be healthy")
     print("=" * 55)
-    
+
     # Test 1: Basic health check
     health_success = test_fastapi_health_with_error_metrics()
     if not health_success:
         print("\n❌ Health check failed - ensure services are running")
         return
-    
+
     # Test 2: Send malformed webhook
     malformed_success = test_send_malformed_webhook()
     if not malformed_success:
         print("\n❌ Malformed webhook test failed")
         return
-    
+
     # Wait longer for consumer to process the error
     print("\n⏱️ Waiting 20 seconds for error processing...")
     await asyncio.sleep(20)
-    
+
     # Test 3: Check DLQ (self-contained test)
     dlq_success = await test_consume_dlq_messages()
-    
+
     # Test 4: Check retry topic (self-contained test)
     retry_success = await test_retry_topic_messages()
-    
+
     # Test 5: Circuit breaker test (send more errors)
     print(f"\n⏱️ Waiting 10 seconds before circuit breaker test...")
     await asyncio.sleep(10)
     circuit_success = test_send_multiple_bad_messages()
-    
+
     # Wait longer for processing all error scenarios
     print("\n⏱️ Waiting 15 seconds for all error processing...")
     await asyncio.sleep(15)
-    
+
     # Test 6: Check logs
     logs_success = check_consumer_logs_for_errors()
-    
+
     # Test 7: Error metrics
     metrics_success = await test_error_metrics_endpoint()
-    
+
     print("\n" + "=" * 55)
     print("📊 ERROR HANDLING TEST RESULTS")
     print("=" * 55)
-    
+
     tests = [
         ("Health Check", health_success),
         ("Malformed Webhook", malformed_success),
@@ -437,16 +437,16 @@ async def main():
         ("Error Logs", logs_success),
         ("Metrics Endpoint", metrics_success)
     ]
-    
+
     # Count actual failures vs expected outcomes
     critical_tests = ["Health Check", "Malformed Webhook", "Error Logs"]
     critical_passed = all(success for name, success in tests if name in critical_tests)
-    
+
     all_passed = all(success for _, success in tests)
     for name, success in tests:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if critical_passed:
         print("\n🎉 ERROR HANDLING CORE FUNCTIONALITY WORKING!")
         print("Verified:")

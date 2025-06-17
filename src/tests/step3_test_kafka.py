@@ -28,7 +28,7 @@ def run_kafka_command(cmd):
 def test_zookeeper_connection():
     """Test 1: Zookeeper connectivity via Kafka tools"""
     print("🔍 Test 1: Zookeeper connection...")
-    
+
     # Use kafka-configs to test Zookeeper connectivity
     success, stdout, stderr = run_kafka_command(
         f"kafka-configs --bootstrap-server localhost:{KAFKA_EXTERNAL_PORT} --describe --entity-type brokers"
@@ -43,7 +43,7 @@ def test_zookeeper_connection():
 def test_kafka_broker():
     """Test 2: Kafka broker connectivity"""
     print("\n🔍 Test 2: Kafka broker...")
-    
+
     success, stdout, stderr = run_kafka_command(
         f"kafka-broker-api-versions --bootstrap-server localhost:{KAFKA_EXTERNAL_PORT}"
     )
@@ -57,7 +57,7 @@ def test_kafka_broker():
 def test_topic_operations():
     """Test 3: Topic creation and listing"""
     print("\n🔍 Test 3: Topic operations...")
-    
+
     # Create test topic
     success, stdout, stderr = run_kafka_command(
         f"kafka-topics --bootstrap-server localhost:{KAFKA_EXTERNAL_PORT} --create --topic {TEST_TOPIC} --partitions 1 --replication-factor 1"
@@ -65,7 +65,7 @@ def test_topic_operations():
     if not success:
         print(f"❌ Topic creation failed: {stderr}")
         return False
-    
+
     # List topics
     success, stdout, stderr = run_kafka_command(
         f"kafka-topics --bootstrap-server localhost:{KAFKA_EXTERNAL_PORT} --list"
@@ -80,26 +80,26 @@ def test_topic_operations():
 def test_producer_consumer():
     """Test 4: Basic produce/consume"""
     print("\n🔍 Test 4: Producer/Consumer...")
-    
+
     test_message = "Hello Kafka from Step 3.1!"
-    
+
     # Produce message
     produce_cmd = f'echo "{test_message}" | kafka-console-producer --bootstrap-server localhost:{KAFKA_EXTERNAL_PORT} --topic test-topic'
     success, stdout, stderr = run_kafka_command(produce_cmd)
     if not success:
         print(f"❌ Producer failed: {stderr}")
         return False
-    
+
     print("✅ Message produced")
-    
+
     # Give producer time to complete
     import time
     time.sleep(2)
-    
+
     # Consume message (with timeout)
     consume_cmd = f"timeout 10s kafka-console-consumer --bootstrap-server localhost:{KAFKA_EXTERNAL_PORT} --topic test-topic --from-beginning --max-messages 1 2>/dev/null"
     success, stdout, stderr = run_kafka_command(consume_cmd)
-    
+
     if success and test_message in stdout:
         print("✅ Message consumed")
         return True
@@ -110,7 +110,7 @@ def test_producer_consumer():
 def check_containers_running():
     """Check if required containers are running"""
     print("🔍 Checking containers...")
-    
+
     containers = ["transportation_zookeeper", "transportation_kafka"]
     for container in containers:
         result = subprocess.run(
@@ -120,7 +120,7 @@ def check_containers_running():
         if container not in result.stdout:
             print(f"❌ Container {container} not running")
             return False
-    
+
     print("✅ All containers running")
     return True
 
@@ -130,39 +130,39 @@ def main():
     print("Prerequisites:")
     print("- podman-compose up -d (wait 2-3 minutes)")
     print("=" * 40)
-    
+
     # Check containers first
     if not check_containers_running():
         print("\n❌ Start containers first: podman-compose up -d")
         sys.exit(1)
-    
+
     # Wait a bit for Kafka to be fully ready
     print("\n⏱️ Waiting 10 seconds for Kafka to be ready...")
     time.sleep(10)
-    
+
     tests = [
         ("Zookeeper Connection", test_zookeeper_connection),
         ("Kafka Broker", test_kafka_broker),
         ("Topic Operations", test_topic_operations),
         ("Producer/Consumer", test_producer_consumer)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = test_func()
         results.append((name, success))
         if not success:
             break  # Stop on first failure for debugging
-    
+
     print("\n" + "=" * 40)
     print("📊 RESULTS")
     print("=" * 40)
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 KAFKA CLUSTER READY!")
         print("Step 3.1 complete")

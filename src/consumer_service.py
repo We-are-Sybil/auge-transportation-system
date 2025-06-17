@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 class TransportationConsumerService:
     """Enhanced consumer service with error handling and monitoring"""
-    
+
     def __init__(self):
         self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.consumer = KafkaConsumerService(
@@ -45,7 +45,7 @@ class TransportationConsumerService:
         self.start_time = datetime.now()
         self.processed_messages = 0
         self.health_check_interval = 60  # seconds
-    
+
     async def setup_handlers(self):
         """Register message handlers with error handling"""
         try:
@@ -56,7 +56,7 @@ class TransportationConsumerService:
         except Exception as e:
             logger.error(f"❌ Failed to register handlers: {e}")
             raise
-    
+
     async def start(self):
         """Start the enhanced consumer service"""
         logger.info("🚀 Starting Enhanced Transportation Consumer Service")
@@ -109,7 +109,7 @@ class TransportationConsumerService:
             await self.consumer.stop()
             uptime = datetime.now() - self.start_time
             logger.info(f"✅ Consumer service stopped - Uptime: {uptime}, Messages processed: {self.processed_messages}")
-    
+
     async def periodic_health_check(self):
         """Periodic health check and metrics logging"""
         while not self.shutdown_event.is_set():
@@ -138,7 +138,7 @@ class TransportationConsumerService:
                 
             except Exception as e:
                 logger.error(f"❌ Health check error: {e}")
-    
+
     def get_service_status(self):
         """Get current service status"""
         uptime = datetime.now() - self.start_time
@@ -154,7 +154,7 @@ class TransportationConsumerService:
 async def main():
     """Main entry point with enhanced error handling"""
     service = TransportationConsumerService()
-    
+
     try:
         logger.info("🔧 Initializing Enhanced Transportation Consumer...")
         await service.start()
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     logger.info(f"📅 Start Time: {datetime.now()}")
     logger.info(f"🐍 Python: {sys.version}")
     logger.info("=" * 60)
-    
+
     try:
         asyncio.run(main())
     except Exception as e:

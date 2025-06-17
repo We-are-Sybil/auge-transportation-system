@@ -68,29 +68,29 @@ async def main():
     """Run Redis tests"""
     print("🚀 Redis Test")
     print("=" * 30)
-    
+
     tests = [
         ("Connection", test_connection),
         ("Basic Ops", test_basic_ops),
         ("Sessions", test_sessions)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = await test_func()
         results.append((name, success))
-    
+
     print("\n" + "=" * 30)
     print("📊 RESULTS")
     print("=" * 30)
-    
+
     all_passed = True
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
         if not success:
             all_passed = False
-    
+
     if all_passed:
         print("\n🎉 REDIS READY!")
         print("Step 1.2 complete - Redis + PostgreSQL working")

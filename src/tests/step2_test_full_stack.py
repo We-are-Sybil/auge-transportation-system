@@ -79,29 +79,29 @@ def main():
     print("Run: podman-compose up -d")
     print("Wait 60 seconds for all services to start")
     print("=" * 40)
-    
+
     tests = [
         ("FastAPI Health", test_fastapi_health),
         ("Database", test_database_connection), 
         ("Redis", test_redis_connection),
         ("WhatsApp Webhook", test_whatsapp_webhook)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = test_func()
         results.append((name, success))
         time.sleep(1)
-    
+
     print("\n" + "=" * 40)
     print("📊 RESULTS")
     print("=" * 40)
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 FULL STACK READY!")
         print("Phase 2 complete")

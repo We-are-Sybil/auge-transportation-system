@@ -7,7 +7,7 @@ from datetime import datetime
 from aiokafka import AIOKafkaConsumer
 
 BASE_URL = "http://localhost:8000"
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+BOOTSTRAP_SERVERS = "localhost:9092"
 TEST_SENDER_ID = os.getenv("WHATSAPP_TESTING_PHONE_NUMBER", f"test_{int(time.time())}")
 
 
@@ -35,7 +35,7 @@ def create_whatsapp_payload(sender_id, message_text, sender_name="Test User"):
         }]
     }
 
-def test_fastapi_kafka_health():
+def test_fastapi_health():
     """Test 1: FastAPI Kafka health check"""
     print("🔍 Test 1: FastAPI Kafka health...")
     try:
@@ -61,10 +61,10 @@ def test_webhook_to_kafka():
         
         success = (response.status_code == 200 and 
                   result.get("status") == "success" and 
-                  result.get("kafka_sent") == True)
+                  result.get("sent") == True)
         
         print(f"✅ Webhook response: {result.get('message')}")
-        print(f"✅ Kafka sent: {result.get('kafka_sent')}")
+        print(f"✅ Kafka sent: {result.get('sent')}")
         return success, user_id
     except Exception as e:
         print(f"❌ Webhook test failed: {e}")
@@ -73,15 +73,15 @@ def test_webhook_to_kafka():
 async def test_consume_from_kafka(expected_sender):
     """Test 3: Consume message from Kafka"""
     print("\n🔍 Test 3: Consume from Kafka...")
-    
+
     consumer = AIOKafkaConsumer(
         'conversation.messages',
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        bootstrap_servers=BOOTSTRAP_SERVERS,
         auto_offset_reset='latest',
         value_deserializer=lambda x: json.loads(x.decode('utf-8')),
         consumer_timeout_ms=10000
     )
-    
+
     try:
         await consumer.start()
         print("✅ Kafka consumer started")
@@ -135,7 +135,7 @@ def test_multiple_messages():
             result = response.json()
             
             if (response.status_code == 200 and 
-                result.get("kafka_sent") == True):
+                result.get("sent") == True):
                 success_count += 1
         
         print(f"✅ Sent {success_count}/{len(messages)} messages to Kafka")
@@ -145,28 +145,28 @@ def test_multiple_messages():
         print(f"❌ Multiple messages test failed: {e}")
         return False
 
-async def test_kafka_message_structure():
+async def test_message_structure():
     """Test 5: Verify Kafka message structure"""
     print("\n🔍 Test 5: Kafka message structure...")
-    
+
     # Send test message
     user_id = TEST_SENDER_ID
     payload = create_whatsapp_payload(user_id, "Test message structure", "Structure Tester")
-    
+
     response = requests.post(f"{BASE_URL}/webhook", json=payload)
     if response.status_code != 200:
         print("❌ Failed to send webhook")
         return False
-    
+
     # Consume and verify structure
     consumer = AIOKafkaConsumer(
         'conversation.messages',
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        bootstrap_servers=BOOTSTRAP_SERVERS,
         auto_offset_reset='latest',
         value_deserializer=lambda x: json.loads(x.decode('utf-8')),
         consumer_timeout_ms=8000
     )
-    
+
     try:
         await consumer.start()
         
@@ -219,40 +219,40 @@ async def main():
     print("- podman-compose up -d")
     print("- uv run uvicorn src.webhook_service.main:app --reload")
     print("=" * 45)
-    
+
     # Test 1: Health check
-    if not test_fastapi_kafka_health():
+    if not test_fastapi_health():
         print("\n❌ Kafka not ready. Check FastAPI logs.")
         return
-    
+
     # Test 2: Webhook to Kafka
     webhook_success, test_user = test_webhook_to_kafka()
     if not webhook_success:
         print("\n❌ Webhook → Kafka failed")
         return
-    
+
     # Wait a moment for message to be available
     await asyncio.sleep(2)
-    
+
     # Test 3: Consume from Kafka
     if test_user and not await test_consume_from_kafka(test_user):
         print("\n❌ Kafka consumption failed")
         return
-    
+
     # Test 4: Multiple messages
     if not test_multiple_messages():
         print("\n❌ Multiple messages test failed")
         return
-    
+
     # Test 5: Message structure
-    if not await test_kafka_message_structure():
+    if not await test_message_structure():
         print("\n❌ Message structure test failed")
         return
-    
+
     print("\n" + "=" * 45)
     print("📊 RESULTS")
     print("=" * 45)
-    
+
     tests = [
         ("Kafka Health", True),
         ("Webhook → Kafka", True),
@@ -260,11 +260,11 @@ async def main():
         ("Multiple Messages", True),
         ("Message Structure", True)
     ]
-    
+
     for name, success in tests:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     print("\n🎉 WEBHOOK → KAFKA INTEGRATION READY!")
     print("Step 3.4 complete")
 

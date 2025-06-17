@@ -4,12 +4,12 @@ topics:
     partitions: 3
     replication_factor: 1
     retention_hours: 168  # 7 days
-    
+
   conversation.state_changes:
     partitions: 3
     replication_factor: 1
     retention_hours: 720  # 30 days
-    
+
   conversation.responses:
     partitions: 2
     replication_factor: 1
@@ -20,22 +20,22 @@ topics:
     partitions: 3
     replication_factor: 1
     retention_hours: 2160  # 90 days
-    
+
   quotation.processing:
     partitions: 2
     replication_factor: 1
     retention_hours: 720  # 30 days
-    
+
   quotation.responses:
     partitions: 2
     replication_factor: 1
     retention_hours: 4320  # 180 days
-    
+
   quotation.modifications:
     partitions: 2
     replication_factor: 1
     retention_hours: 2160  # 90 days
-    
+
   quotation.confirmations:
     partitions: 2
     replication_factor: 1
@@ -46,7 +46,7 @@ topics:
     partitions: 1
     replication_factor: 1
     retention_hours: 720  # 30 days
-    
+
   system.errors:
     partitions: 1
     replication_factor: 1
@@ -57,23 +57,23 @@ topics:
     partitions: 1
     replication_factor: 1
     retention_hours: 2160  # 90 days (longer retention for investigation)
-    
+
   quotation.requests.dlq:
     partitions: 1
     replication_factor: 1
     retention_hours: 2160  # 90 days
-    
+
   quotation.processing.dlq:
     partitions: 1
     replication_factor: 1
     retention_hours: 2160  # 90 days
-    
+
   # Retry Topics (for delayed retries)
   conversation.messages.retry:
     partitions: 2
     replication_factor: 1
     retention_hours: 168  # 7 days
-    
+
   quotation.requests.retry:
     partitions: 2
     replication_factor: 1

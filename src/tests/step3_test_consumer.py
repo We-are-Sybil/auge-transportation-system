@@ -27,7 +27,7 @@ async def test_consumer_start_stop():
     """Test 2: Consumer start/stop"""
     print("\n🔍 Test 2: Consumer start/stop...")
     consumer = KafkaConsumerService("localhost:9092", "test_group_2")
-    
+
     try:
         await consumer.start(["conversation.messages"])
         print("✅ Consumer started")
@@ -46,19 +46,19 @@ async def test_consumer_start_stop():
 async def test_message_consumption():
     """Test 3: Actual message consumption"""
     print("\n🔍 Test 3: Message consumption...")
-    
+
     # Create producer and consumer
     producer = KafkaProducerService("localhost:9092")
     consumer = KafkaConsumerService("localhost:9092", "test_consumption")
-    
+
     # Track received messages
     received_messages = []
-    
+
     # Updated handler signature to match new consumer interface
     async def test_handler(message_data, kafka_message, db_manager, redis_manager):
         received_messages.append(message_data)
         print(f"✅ Received: {message_data.get('message_data', {}).get('test_id', 'unknown')}")
-    
+
     try:
         # Start services
         await producer.start()
@@ -111,27 +111,27 @@ async def main():
     print("=" * 30)
     print("Prerequisites: podman-compose up -d")
     print("=" * 30)
-    
+
     tests = [
         ("Consumer Creation", test_consumer_creation),
         ("Start/Stop", test_consumer_start_stop),
         ("Message Consumption", test_message_consumption)
     ]
-    
+
     results = []
     for name, test_func in tests:
         success = await test_func()
         results.append((name, success))
-    
+
     print("\n" + "=" * 30)
     print("📊 RESULTS")
     print("=" * 30)
-    
+
     all_passed = all(success for _, success in results)
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{name}: {status}")
-    
+
     if all_passed:
         print("\n🎉 CONSUMER SERVICE READY!")
         print("Step 3.5 complete")
