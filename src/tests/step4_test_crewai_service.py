@@ -25,7 +25,7 @@ async def send_test_message(topic: str, message: dict):
         value_serializer=lambda x: json.dumps(x).encode('utf-8'),
         key_serializer=lambda x: x.encode('utf-8') if x else None
     )
-    
+
     try:
         await producer.start()
         
@@ -47,7 +47,7 @@ async def run_tests():
     """Run comprehensive CrewAI service tests"""
     logger.info("🧪 Starting CrewAI Service Tests")
     logger.info("=" * 40)
-    
+
     # Test messages for different topics
     test_messages = {
         "conversation.messages": {
@@ -69,10 +69,10 @@ async def run_tests():
             "timestamp": datetime.now().isoformat()
         }
     }
-    
+
     success_count = 0
     total_tests = len(test_messages)
-    
+
     # Send test messages
     for topic, message in test_messages.items():
         logger.info(f"📨 Testing {topic}")
@@ -83,11 +83,11 @@ async def run_tests():
             await asyncio.sleep(2)
         else:
             logger.error(f"❌ Test failed for {topic}")
-    
+
     # Results
     logger.info("\n" + "=" * 40)
     logger.info(f"🏁 Test Results: {success_count}/{total_tests} passed")
-    
+
     if success_count == total_tests:
         logger.info("🎉 ALL TESTS PASSED!")
         logger.info("✅ CrewAI service should now process these messages")
@@ -96,7 +96,7 @@ async def run_tests():
     else:
         logger.error("❌ Some tests failed")
         return False
-    
+
     return True
 
 
@@ -125,7 +125,7 @@ async def main():
     if len(sys.argv) > 1 and sys.argv[1] in ["-h", "--help"]:
         print_usage()
         return
-    
+
     try:
         success = await run_tests()
         sys.exit(0 if success else 1)

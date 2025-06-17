@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 
 class CrewAIConfig(BaseSettings):
     """Configuration for CrewAI service with generalized LLM support"""
-    
+
     # LLM Configuration - Provider Agnostic
     llm_provider: str = "ollama"  # ollama, openai, anthropic, google, etc.
     llm_model: str = "phi3:3.8b"  # Model name without provider prefix
@@ -16,7 +16,7 @@ class CrewAIConfig(BaseSettings):
     llm_temperature: float = 0.1
     llm_max_tokens: Optional[int] = None
     llm_timeout: int = 120  # seconds
-    
+
     # Kafka Configuration
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_consumer_topics: List[str] = [
@@ -25,23 +25,23 @@ class CrewAIConfig(BaseSettings):
     ]
     kafka_consumer_group: str = "crewai-service"
     kafka_consumer_timeout: int = 30
-    
+
     # Service Configuration
     agent_verbose: bool = True
     max_iterations: int = 10
     memory_enabled: bool = True
-    
+
     # File paths (use absolute paths to avoid working directory issues)
     agents_config_path: str = "src/crewai_service/crews/config/agents.yaml"
     tasks_config_path: str = "src/crewai_service/crews/config/tasks.yaml"
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Convert to absolute paths if they're relative
         project_root = Path(__file__).parent.parent.parent
         self.agents_config_path = str(project_root / self.agents_config_path)
         self.tasks_config_path = str(project_root / self.tasks_config_path)
-    
+
     @field_validator('llm_max_tokens', mode='before')
     @classmethod
     def validate_llm_max_tokens(cls, v):
@@ -49,7 +49,7 @@ class CrewAIConfig(BaseSettings):
         if v == "" or v is None:
             return None
         return int(v)
-    
+
     class Config:
         # Use absolute path for .env file
         _project_root = Path(__file__).parent.parent.parent
@@ -58,7 +58,7 @@ class CrewAIConfig(BaseSettings):
         case_sensitive = False
         env_prefix = "CREWAI_"
         extra = "ignore"  # Ignore extra environment variables
-    
+
     @property
     def llm_config(self) -> Dict[str, Any]:
         """Get LLM configuration based on provider"""
@@ -80,7 +80,7 @@ class CrewAIConfig(BaseSettings):
             base_config["max_tokens"] = self.llm_max_tokens
             
         return base_config
-    
+
     def _get_full_model_name(self) -> str:
         """Get full model name with provider prefix for CrewAI"""
         match self.llm_provider:
@@ -98,7 +98,7 @@ class CrewAIConfig(BaseSettings):
             case _:
                 # For other providers, use provider/model format
                 return f"{self.llm_provider}/{self.llm_model}"
-    
+
     def get_environment_variables(self) -> Dict[str, str]:
         """Get environment variables needed for the LLM provider"""
         env_vars = {}

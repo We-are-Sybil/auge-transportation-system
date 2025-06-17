@@ -1,0 +1,46 @@
+process_quotation_request:
+  description: >
+    Process the quotation request data: {request_data}
+
+    Validate and analyze the transportation requirements:
+    1. Verify all required information is present (origin, destination, cargo details, timeline)
+    2. Identify transportation type and service level needed
+    3. Check for special requirements (hazardous materials, temperature control, etc.)
+    4. Validate route feasibility and constraints
+    5. Prepare structured data for pricing calculation
+
+    Ensure all business logic requirements are satisfied before proceeding to pricing.
+  expected_output: >
+    JSON object containing:
+    - request_id: unique identifier for the quotation request
+    - validated_requirements: cleaned and structured transportation requirements
+    - service_type: identified transportation service type
+    - route_analysis: route feasibility and distance calculations
+    - special_requirements: any special handling or compliance needs
+    - pricing_inputs: structured data ready for pricing calculation
+    - validation_status: complete/incomplete with details of missing info
+  agent: quotation_processor
+
+generate_quotation:
+  description: >
+    Based on validated requirements from previous task, generate detailed quotation:
+
+    1. Calculate base pricing using validated transportation requirements
+    2. Apply service level pricing adjustments
+    3. Include special requirement costs and fees
+    4. Generate professional quotation document
+    5. Include terms, conditions, and timeline
+    6. Provide cost breakdown and options
+
+    Create professional, competitive quotation ready for customer review.
+  expected_output: >
+    JSON object containing:
+    - quotation_id: unique quotation reference number
+    - total_price: final quoted price with currency
+    - cost_breakdown: detailed breakdown of all costs and fees
+    - service_details: description of included services
+    - timeline: pickup and delivery schedule
+    - terms_conditions: applicable terms and payment conditions
+    - validity_period: how long the quote remains valid
+    - quotation_document: formatted quotation ready for customer
+  agent: pricing_specialist

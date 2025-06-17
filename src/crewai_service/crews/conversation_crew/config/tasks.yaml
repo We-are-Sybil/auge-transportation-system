@@ -1,0 +1,41 @@
+track_conversation_state:
+  description: >
+    Analyze the incoming message: {message}
+
+    Track and update conversation state by:
+    1. Identifying user intent and message type
+    2. Extracting key information from the message
+    3. Updating conversation context with new data
+    4. Identifying what information is still missing
+    5. Determining conversation stage (greeting, information_gathering, quotation_ready, etc.)
+
+    Maintain conversation history and context for seamless experience.
+  expected_output: >
+    JSON object containing:
+    - conversation_id: unique conversation identifier
+    - user_intent: detected intent (greeting, info_request, quotation_request, etc.)
+    - extracted_data: any transportation details found in message
+    - missing_requirements: list of still-needed information
+    - conversation_stage: current stage of the dialogue
+    - context_summary: brief summary of conversation so far
+  agent: dialogue_state_tracker
+
+manage_dialogue_flow:
+  description: >
+    Based on conversation state from previous task, manage the dialogue flow by:
+
+    1. Determining appropriate response strategy
+    2. Deciding if quotation crew should be involved
+    3. Crafting natural, helpful response to user
+    4. Setting next conversation actions
+    5. Delegating to quotation crew if requirements are complete
+
+    Ensure responses feel natural and guide users toward providing needed information.
+  expected_output: >
+    JSON object containing:
+    - response_message: natural language response to send to user
+    - next_action: what should happen next (collect_info, delegate_quotation, continue_conversation)
+    - delegation_needed: boolean indicating if other crews should be involved
+    - delegation_target: which crew to delegate to if needed
+    - conversation_complete: boolean indicating if conversation goal achieved
+  agent: conversation_manager
