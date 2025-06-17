@@ -2,8 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install uv
-RUN pip install uv
+# Install build dependencies and uv
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    g++ \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install uv
 
 # Copy project files
 COPY pyproject.toml ./

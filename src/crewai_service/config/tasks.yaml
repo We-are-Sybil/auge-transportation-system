@@ -1,0 +1,19 @@
+echo_task:
+  description: >
+    Process the incoming Kafka message: {kafka_message}
+
+    1. Extract and identify the message type and content
+    2. Analyze the message structure and key information
+    3. Create a structured acknowledgment response
+    4. Include timestamp and processing confirmation
+
+    Focus on understanding WhatsApp messages, conversation events, and quotation requests.
+  expected_output: >
+    A JSON response containing:
+    - message_received: true
+    - message_type: detected type
+    - original_content: summary of original message
+    - processed_at: timestamp
+    - agent_response: acknowledgment message
+    - next_action: suggested next steps if any
+  agent: echo_agent
