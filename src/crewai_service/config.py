@@ -51,7 +51,10 @@ class CrewAIConfig(BaseSettings):
         return int(v)
     
     class Config:
-        env_file = ".env"
+        # Use absolute path for .env file
+        _project_root = Path(__file__).parent.parent.parent
+        env_file = str(_project_root / ".env")
+        env_file_encoding = 'utf-8'
         case_sensitive = False
         env_prefix = "CREWAI_"
         extra = "ignore"  # Ignore extra environment variables
@@ -69,7 +72,7 @@ class CrewAIConfig(BaseSettings):
         if self.llm_provider == "ollama":
             if self.llm_base_url:
                 base_config["base_url"] = self.llm_base_url
-        elif self.llm_provider in ["openai", "anthropic", "google"]:
+        elif self.llm_provider in ["openai", "anthropic", "google", "groq"]:
             if self.llm_api_key:
                 base_config["api_key"] = self.llm_api_key
         
@@ -80,17 +83,21 @@ class CrewAIConfig(BaseSettings):
     
     def _get_full_model_name(self) -> str:
         """Get full model name with provider prefix for CrewAI"""
-        if self.llm_provider == "ollama":
-            return f"ollama/{self.llm_model}"
-        elif self.llm_provider == "openai":
-            return self.llm_model  # OpenAI models don't need prefix
-        elif self.llm_provider == "anthropic":
-            return f"anthropic/{self.llm_model}"
-        elif self.llm_provider == "google":
-            return f"gemini/{self.llm_model}"
-        else:
-            # For other providers, use provider/model format
-            return f"{self.llm_provider}/{self.llm_model}"
+        match self.llm_provider:
+            case "ollama":
+                return f"ollama/{self.llm_model}"
+            case "openai":
+                return self.llm_model  # OpenAI models don't need prefix
+            case "anthropic":
+                return f"anthropic/{self.llm_model}"
+            case "google":
+                return f"gemini/{self.llm_model}"
+            case "groq":
+                print(f"====> Using Groq model: {self.llm_model}")
+                return f"groq/{self.llm_model}"
+            case _:
+                # For other providers, use provider/model format
+                return f"{self.llm_provider}/{self.llm_model}"
     
     def get_environment_variables(self) -> Dict[str, str]:
         """Get environment variables needed for the LLM provider"""
@@ -102,6 +109,8 @@ class CrewAIConfig(BaseSettings):
             env_vars["ANTHROPIC_API_KEY"] = self.llm_api_key
         elif self.llm_provider == "google" and self.llm_api_key:
             env_vars["GOOGLE_API_KEY"] = self.llm_api_key
+        elif self.llm_provider == "groq" and self.llm_api_key:
+            env_vars["GROQ_API_KEY"] = self.llm_api_key
         
         return env_vars
 

@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime
 from typing import Dict, Any
 from crewai import Agent, Crew, Process, Task, LLM
@@ -71,11 +72,24 @@ class EchoCrew:
             }
             
         except Exception as e:
-            return {
+            # Better error logging
+            import traceback
+            error_details = {
                 "success": False,
                 "error": str(e),
+                "error_type": type(e).__name__,
+                "traceback": traceback.format_exc(),
                 "processed_at": datetime.now().isoformat(),
                 "llm_provider": config.llm_provider,
                 "llm_model": config.llm_model,
+                "llm_config": config.llm_config,
                 "original_message": kafka_message
             }
+            
+            # Log the full error for debugging
+            logger = logging.getLogger(__name__)
+            logger.error(f"CrewAI processing failed: {str(e)}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"LLM config: {config.llm_config}")
+            
+            return error_details
