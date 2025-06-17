@@ -1,9 +1,8 @@
-import yaml
+import os
 from datetime import datetime
 from typing import Dict, Any
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
-from langchain_ollama import ChatOllama
 from ..config import config
 
 
@@ -15,15 +14,17 @@ class EchoCrew:
     tasks_config_path = config.tasks_config_path
 
     def __init__(self):
-        self.llm = ChatOllama(
-            model=config.ollama_model,
-            base_url=config.ollama_base_url,
-            temperature=0.1
-        )
+        # Set environment variables for the LLM provider
+        env_vars = config.get_environment_variables()
+        for key, value in env_vars.items():
+            os.environ[key] = value
+        
+        # Create LLM instance using CrewAI's LLM class
+        self.llm = LLM(**config.llm_config)
 
     @agent
     def echo_agent(self) -> Agent:
-        """Create echo agent with Ollama LLM"""
+        """Create echo agent with generalized LLM"""
         return Agent(
             config=self.agents_config['echo_agent'],
             llm=self.llm,
@@ -64,6 +65,8 @@ class EchoCrew:
                 "success": True,
                 "processed_at": datetime.now().isoformat(),
                 "agent_response": result.raw,
+                "llm_provider": config.llm_provider,
+                "llm_model": config.llm_model,
                 "usage_metrics": result.usage_metrics if hasattr(result, 'usage_metrics') else None
             }
             
@@ -72,5 +75,7 @@ class EchoCrew:
                 "success": False,
                 "error": str(e),
                 "processed_at": datetime.now().isoformat(),
+                "llm_provider": config.llm_provider,
+                "llm_model": config.llm_model,
                 "original_message": kafka_message
             }

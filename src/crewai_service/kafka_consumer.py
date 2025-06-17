@@ -31,7 +31,12 @@ class CrewAIKafkaConsumer:
             auto_offset_reset='latest',
             enable_auto_commit=True,
             value_deserializer=lambda x: json.loads(x.decode('utf-8')) if x else None,
-            consumer_timeout_ms=config.kafka_consumer_timeout * 1000
+
+            consumer_timeout_ms=config.kafka_consumer_timeout * 1000,
+            session_timeout_ms=300000,  # 5 minutes (default 10s too short for LLM)
+            heartbeat_interval_ms=30000,  # 30 seconds
+            max_poll_interval_ms=600000,  # 10 minutes for very slow processing
+            max_poll_records=1  # Process one message at a time
         )
         
         await self.consumer.start()
