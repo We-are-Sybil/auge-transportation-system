@@ -1,4 +1,3 @@
-"""Database manager with complete models support"""
 from contextlib import asynccontextmanager
 from datetime import datetime
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
