@@ -54,8 +54,29 @@ def test_add_message(session_id):
 def test_webhook_with_db():
     """Test webhook with database integration"""
     print("\n🔍 Testing webhook with database...")
+    fake_whatsapp_payload = {
+            "object": "whatsapp_business_account",
+            "entry": [
+                {
+                    "id": "TEST_ACCOUNT_ID",
+                    "changes": [
+                        {
+                            "field": "messages",
+                            "value": {
+                                "contacts": [ {"wa_id":"123","profile":{"name":"Alice"}} ],
+                                "messages": [
+                                    { "id":"msg-1","from":"123","timestamp": "1650000000",
+                                     "text": {"body":"Hello"}, "type":"text" }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+
     try:
-        response = requests.post(f"{BASE_URL}/webhook", json={"test": "data"})
+        response = requests.post(f"{BASE_URL}/webhook", json=fake_whatsapp_payload)
         result = response.json()
         print(f"✅ Webhook: {result}")
         return response.status_code == 200 and "database connected" in result["message"]

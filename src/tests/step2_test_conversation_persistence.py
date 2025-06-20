@@ -37,7 +37,8 @@ def test_conversation_creation():
     response = requests.post(f"{BASE_URL}/webhook", json=payload)
     result = response.json()
 
-    success = response.status_code == 200 and "Processed 1 WhatsApp messages" in result["message"]
+
+    success = response.status_code == 200 and "Processed 1 messages" in result["message"]
     print(f"✅ New conversation: {success}")
     return success, user_id
 
@@ -50,7 +51,7 @@ def test_conversation_continuation(user_id):
     response = requests.post(f"{BASE_URL}/webhook", json=payload)
     result = response.json()
 
-    success = response.status_code == 200 and "Processed 1 WhatsApp messages" in result["message"]
+    success = response.status_code == 200 and "Processed 1 messages" in result["message"]
     print(f"✅ Continued conversation: {success}")
     return success
 
