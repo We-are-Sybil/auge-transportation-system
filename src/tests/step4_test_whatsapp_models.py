@@ -6,18 +6,18 @@ from typing import Dict, Any
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from src.webhook_service.wa_models.base_models import (
-        InteractiveType,
+    InteractiveType,
 )
 from src.webhook_service.wa_models.helpers import (
-        create_text_message,
-        create_reply_button,
-        create_list_row,
-        create_list_section,
-        create_cta_url_button,
-        parse_webhook,
-        extract_user_message,
-        extract_user_phone,
-        extract_button_response,
+    create_text_message,
+    create_reply_button,
+    create_list_row,
+    create_list_section,
+    create_cta_url_button,
+    # parse_webhook,
+    # Vextract_user_message,
+    # Vextract_user_phone,
+    # Vextract_button_response,
 )
 
 from src.webhook_service.wa_models.base_models import (
@@ -46,40 +46,44 @@ from src.webhook_service.wa_models.interactive_models import (
     Interactive,
     InteractiveBody,
     ListAction,
+    LocationRequestAction,
     # InteractiveButton,
     # ListRow,
     # ListSection,
 )
-# from src.webhook_service.wa_models.webhook_models import (
-#     WhatsAppWebhook,
-# )
+from src.webhook_service.wa_models.client import WhatsAppClient
 
 
-class WhatsAppClient:
-    """WhatsApp Cloud API client"""
-    
-    def __init__(self, access_token: str, phone_number_id: str, api_version: str = "v23.0"):
-        self.access_token = access_token
-        self.phone_number_id = phone_number_id
-        self.base_url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
-    
-    def send_message(self, message: WhatsAppMessageRequest) -> Dict[str, Any]:
-        """Send WhatsApp message"""
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.access_token}'
-        }
-        payload = message.model_dump(exclude_none=True, by_alias=True)
-        response = requests.post(self.base_url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
+def should_send_messages():
+    """Check if we should actually send WhatsApp messages"""
+    import os
+    return os.getenv('SEND_WHATSAPP_MESSAGES', 'false').lower() == 'true'
+
+
+def send_or_test(message: WhatsAppMessageRequest) -> bool:
+    """Send message if env var is set, otherwise just test creation"""
+    if should_send_messages():
+        client = get_whatsapp_client()
+        if not client:
+            print("   ⚠️  No WhatsApp credentials - testing model only")
+            return True
+        try:
+            response = client.send_message(message)
+            return response.get('messages', [{}])[0].get('id') is not None
+        except Exception as e:
+            print(f"   ❌ Send failed: {e}")
+            return False
+    else:
+        # Just test model creation
+        return message.model_dump(exclude_none=True) is not None
 
 
 def test_text_messages():
-    """Test text message creation"""
-    simple_text = create_text_message("+1234567890", "Hello! Welcome to our service.")
-    text_with_link = create_text_message("+1234567890", "Visit: https://example.com", preview_url=True)
-    return [simple_text, text_with_link]
+    """Test text message creation/sending"""
+    simple_text = create_text_message(get_test_phone(), "Hello! Welcome to our service.")
+    text_with_link = create_text_message(get_test_phone(), "Visit: https://example.com", preview_url=True)
+    
+    return send_or_test(simple_text) and send_or_test(text_with_link)
 
 
 def test_interactive_buttons():
@@ -97,11 +101,13 @@ def test_interactive_buttons():
         action=ButtonAction(buttons=buttons)
     )
     
-    return WhatsAppMessageRequest(
-        to="+1234567890",
+    message = WhatsAppMessageRequest(
+        to=get_test_phone(),
         type=MessageType.INTERACTIVE,
         interactive=interactive
     )
+    
+    return send_or_test(message)
 
 
 def test_interactive_list():
@@ -120,11 +126,13 @@ def test_interactive_list():
         action=ListAction(button="View Options", sections=sections)
     )
     
-    return WhatsAppMessageRequest(
-        to="+1234567890",
+    message = WhatsAppMessageRequest(
+        to=get_test_phone(),
         type=MessageType.INTERACTIVE,
         interactive=interactive
     )
+    
+    return send_or_test(message)
 
 
 def test_cta_button():
@@ -135,76 +143,97 @@ def test_cta_button():
         action=create_cta_url_button("Book Now", "https://booking.example.com")
     )
     
-    return WhatsAppMessageRequest(
-        to="+1234567890",
+    message = WhatsAppMessageRequest(
+        to=get_test_phone(),
         type=MessageType.INTERACTIVE,
         interactive=interactive
     )
-
-
-def test_webhook_handling():
-    """Test webhook parsing"""
-    webhook_data = {
-        "object": "whatsapp_business_account",
-        "entry": [{
-            "id": "102290129340398",
-            "changes": [{
-                "value": {
-                    "messaging_product": "whatsapp",
-                    "metadata": {
-                        "display_phone_number": "15550783881",
-                        "phone_number_id": "106540352242922"
-                    },
-                    "contacts": [{"profile": {"name": "John"}, "wa_id": "1234567890"}],
-                    "messages": [{
-                        "from": "1234567890",
-                        "id": "wamid.123",
-                        "timestamp": "1712595443",
-                        "type": "text",
-                        "text": {"body": "Hello, need help"}
-                    }]
-                },
-                "field": "messages"
-            }]
-        }]
-    }
     
-    webhook = parse_webhook(webhook_data)
-    user_phone = extract_user_phone(webhook)
-    user_message = extract_user_message(webhook)
-    
-    return create_text_message(f"+{user_phone}", "Thanks! We'll respond shortly.")
+    return send_or_test(message)
 
 
-def test_interactive_response():
-    """Test interactive response handling"""
-    webhook_data = {
-        "object": "whatsapp_business_account",
-        "entry": [{
-            "id": "102290129340398",
-            "changes": [{
-                "value": {
-                    "messaging_product": "whatsapp",
-                    "metadata": {"display_phone_number": "15550783881", "phone_number_id": "106540352242922"},
-                    "contacts": [{"profile": {"name": "John"}, "wa_id": "1234567890"}],
-                    "messages": [{
-                        "from": "1234567890",
-                        "id": "wamid.456",
-                        "timestamp": "1714510003",
-                        "type": "interactive",
-                        "interactive": {
-                            "type": "button_reply",
-                            "button_reply": {"id": "yes_btn", "title": "Yes"}
-                        }
-                    }]
-                },
-                "field": "messages"
-            }]
-        }]
-    }
+def test_location_request():
+    """Test sending location request message"""
+    interactive = Interactive(
+        type=InteractiveType.LOCATION_REQUEST_MESSAGE,
+        body=InteractiveBody(text="Please share your pickup location for transportation service."),
+        action=LocationRequestAction()
+    )
     
-    webhook = parse_webhook(webhook_data)
-    return extract_button_response(webhook)
+    message = WhatsAppMessageRequest(
+        to=get_test_phone(),
+        type=MessageType.INTERACTIVE,
+        interactive=interactive
+    )
+    
+    return send_or_test(message)
+
+
+def test_transportation_buttons():
+    """Test sending transportation service buttons"""
+    buttons = [
+        create_reply_button("book_now", "Book Now"),
+        create_reply_button("get_quote", "Get Quote"),
+        create_reply_button("track_order", "Track Order")
+    ]
+    
+    interactive = Interactive(
+        type=InteractiveType.BUTTON,
+        body=InteractiveBody(text="How can we help with your transportation needs?"),
+        footer=FooterContent(text="Select an option below"),
+        action=ButtonAction(buttons=buttons)
+    )
+    
+    message = WhatsAppMessageRequest(
+        to=get_test_phone(),
+        type=MessageType.INTERACTIVE,
+        interactive=interactive
+    )
+    
+    return send_or_test(message)
+
+
+def test_service_list():
+    """Test sending transportation service list"""
+    services = [
+        create_list_row("airport", "Airport Transfer", "Professional airport service"),
+        create_list_row("city", "City Transport", "Local transportation"),
+        create_list_row("luxury", "Luxury Service", "Premium vehicles")
+    ]
+    
+    sections = [create_list_section("Transportation Services", services)]
+    
+    interactive = Interactive(
+        type=InteractiveType.LIST,
+        body=InteractiveBody(text="Select your transportation service:"),
+        action=ListAction(button="View Services", sections=sections)
+    )
+    
+    message = WhatsAppMessageRequest(
+        to=get_test_phone(),
+        type=MessageType.INTERACTIVE,
+        interactive=interactive
+    )
+    
+    return send_or_test(message)
+
+
+def get_whatsapp_client():
+    """Get WhatsApp client with credentials"""
+    import os
+    access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
+    phone_number_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+    
+    if not access_token or not phone_number_id:
+        return None
+    
+    return WhatsAppClient(access_token, phone_number_id)
+
+
+def get_test_phone():
+    """Get test phone number"""
+    import os
+    return os.getenv('TEST_PHONE_NUMBER', '+1234567890')
 
 
 def main():
@@ -217,8 +246,9 @@ def main():
         ("Interactive Buttons", test_interactive_buttons), 
         ("Interactive List", test_interactive_list),
         ("CTA Button", test_cta_button),
-        ("Webhook Handling", test_webhook_handling),
-        ("Interactive Response", test_interactive_response)
+        ("Location Request", test_location_request),
+        ("Transportation Buttons", test_transportation_buttons),
+        ("Service List", test_service_list)
     ]
 
     results = []

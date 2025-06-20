@@ -5,17 +5,7 @@ from typing import Optional, List, Dict, Any
 
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from src.webhook_service.wa_models.base_models import (
-    # WhatsAppBaseModel,
-    MessageType,
-    # ContactAddress,
-    # ContactEmail,
-    # ContactPhone,
-    # ContactName,
-    # ContactOrganization,
-    # ContactUrl,
-    # WhatsAppConfig,
-)
+from src.webhook_service.wa_models.base_models import MessageType
 from src.webhook_service.wa_models.message_models import (
     WhatsAppMessageRequest,
     TextMessage,
@@ -31,9 +21,7 @@ from src.webhook_service.wa_models.interactive_models import (
     ListRow,
     ListSection,
 )
-from src.webhook_service.wa_models.webhook_models import (
-    WhatsAppWebhook,
-)
+from src.webhook_service.wa_models.webhook_models import WhatsAppWebhook
 
 # Message models
 
