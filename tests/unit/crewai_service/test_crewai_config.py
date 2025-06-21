@@ -6,7 +6,7 @@ import os
 import sys
 
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from src.crewai_service.config import CrewAIConfig
 

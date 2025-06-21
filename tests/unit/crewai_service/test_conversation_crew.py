@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from src.crewai_service.crews.conversation_crew.conversation_crew import ConversationCrew
 
